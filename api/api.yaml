@@ -133,43 +133,26 @@ components:
         - storage
       properties:
         path:
-          allOf:
-            - $ref: '#/components/schemas/Path'
-            - description: Full path to the file or directory, includes adapter prefix (e.g., 'adapter://path/to/file')
+          $ref: '#/components/schemas/Path'
         type:
           $ref: '#/components/schemas/FileType'
         basename:
           $ref: '#/components/schemas/Basename'
         extension:
-          allOf:
-            - $ref: '#/components/schemas/Extension'
-            - description: File extension without the dot (only present for files, extracted via pathinfo)
+          $ref: '#/components/schemas/Extension'
         storage:
-          allOf:
-            - $ref: '#/components/schemas/Adapter'
-            - description: Storage adapter key that this file belongs to
+          $ref: '#/components/schemas/Adapter'
         mime_type:
-          allOf:
-            - $ref: '#/components/schemas/MimeType'
-            - description: MIME type of the file (only present for files with extensions, detected by filesystem)
+          $ref: '#/components/schemas/MimeType'
         url:
-          allOf:
-            - $ref: '#/components/schemas/Url'
-            - description: Public URL to access the file (only present if publicLinks config is set and path matches)
+          $ref: '#/components/schemas/Url'
         size:
-          allOf:
-            - $ref: '#/components/schemas/FileSize'
-            - description: File size in bytes (provided by filesystem StorageAttributes)
+          $ref: '#/components/schemas/FileSize'
         last_modified:
-          allOf:
-            - $ref: '#/components/schemas/Timestamp'
-            - description: Unix timestamp of last modification time (provided by filesystem StorageAttributes)
+          $ref: '#/components/schemas/Timestamp'
         dir:
-          allOf:
-            - $ref: '#/components/schemas/DirectoryPath'
-            - description: Parent directory path (only present in search results, extracted via dirname)
-            - example: 'local://documents'
-    
+          $ref: '#/components/schemas/DirectoryPath'
+            
     FileItem:
       type: object
       description: Reference to a file or directory for batch operations (move, delete, archive)
@@ -178,14 +161,9 @@ components:
         - type
       properties:
         path:
-          allOf:
-            - $ref: '#/components/schemas/Path'
-            - description: Full path to the file or directory to operate on
-            - example: 'local://documents/file.txt'
+          $ref: '#/components/schemas/Path'
         type:
-          allOf:
-            - $ref: '#/components/schemas/FileType'
-            - description: Type of item - determines whether to use delete() or deleteDirectory()
+          $ref: '#/components/schemas/FileType'
     
     Folder:
       type: object
@@ -196,19 +174,11 @@ components:
         - basename
       properties:
         adapter:
-          allOf:
-            - $ref: '#/components/schemas/Adapter'
-            - description: Storage adapter key this folder belongs to
+          $ref: '#/components/schemas/Adapter'
         path:
-          allOf:
-            - $ref: '#/components/schemas/Path'
-            - description: Full path to the folder including adapter prefix
-            - example: 'local://documents/reports'
+          $ref: '#/components/schemas/Path'
         basename:
-          allOf:
-            - $ref: '#/components/schemas/Basename'
-            - description: Name of the folder (extracted via basename)
-            - example: 'reports'
+          $ref: '#/components/schemas/Basename'
     
     DirectoryListingResponse:
       type: object
@@ -220,16 +190,11 @@ components:
         - files
       properties:
         adapter:
-          allOf:
-            - $ref: '#/components/schemas/Adapter'
-            - description: Currently active storage adapter key
+          $ref: '#/components/schemas/Adapter'
         storages:
           $ref: '#/components/schemas/AdapterList'
         dirname:
-          allOf:
-            - $ref: '#/components/schemas/DirectoryPath'
-            - description: Current directory path with adapter prefix
-            - example: 'local://documents'
+          $ref: '#/components/schemas/DirectoryPath'
         files:
           $ref: '#/components/schemas/FileList'
     
@@ -248,9 +213,7 @@ components:
         - name
       properties:
         name:
-          allOf:
-            - $ref: '#/components/schemas/Name'
-            - description: Name of the file or folder to create (must not contain \\/?%*:|"<> characters)
+          $ref: '#/components/schemas/Name'
     
     RenameRequest:
       type: object
@@ -259,15 +222,9 @@ components:
         - item
       properties:
         name:
-          allOf:
-            - $ref: '#/components/schemas/Name'
-            - description: New name for the file or folder
-            - example: 'renamed-file.txt'
+          $ref: '#/components/schemas/Name'
         item:
-          allOf:
-            - $ref: '#/components/schemas/Path'
-            - description: Current full path of the item to rename
-            - example: 'local://documents/old-file.txt'
+          $ref: '#/components/schemas/Path'
     
     MoveRequest:
       type: object
@@ -276,14 +233,9 @@ components:
         - items
       properties:
         item:
-          allOf:
-            - $ref: '#/components/schemas/DirectoryPath'
-            - description: Target destination directory path where items will be moved
-            - example: 'local://archive'
+          $ref: '#/components/schemas/DirectoryPath'
         items:
-          allOf:
-            - $ref: '#/components/schemas/FileItemList'
-            - description: Array of items to move (all validated before any moves occur)
+          $ref: '#/components/schemas/FileItemList'
     
     DeleteRequest:
       type: object
@@ -291,9 +243,7 @@ components:
         - items
       properties:
         items:
-          allOf:
-            - $ref: '#/components/schemas/FileItemList'
-            - description: Array of items to delete (type determines deletion method)
+          $ref: '#/components/schemas/FileItemList'
     
     ArchiveRequest:
       type: object
@@ -304,9 +254,7 @@ components:
         name:
           $ref: '#/components/schemas/ArchiveName'
         items:
-          allOf:
-            - $ref: '#/components/schemas/FileItemList'
-            - description: Array of files and/or folders to include in archive
+          $ref: '#/components/schemas/FileItemList'
     
     UnarchiveRequest:
       type: object
@@ -314,10 +262,7 @@ components:
         - item
       properties:
         item:
-          allOf:
-            - $ref: '#/components/schemas/Path'
-            - description: Full path to the ZIP file to extract
-            - example: 'local://documents/backup-2024.zip'
+          $ref: '#/components/schemas/Path'
     
     SaveRequest:
       type: object
@@ -444,7 +389,7 @@ components:
       schema:
         $ref: '#/components/schemas/Adapter'
     
-    path:
+    pathParam:
       name: path
       in: query
       required: false
@@ -505,7 +450,7 @@ paths:
         Public URLs are added if publicLinks config matches the path.
       parameters:
         - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/path'
+        - $ref: '#/components/parameters/pathParam'
       responses:
         '200':
           $ref: '#/components/responses/DirectoryListing'
@@ -522,7 +467,7 @@ paths:
         Used for tree navigation and folder browsing. Only returns directories, not files.
       parameters:
         - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/path'
+        - $ref: '#/components/parameters/pathParam'
       responses:
         '200':
           $ref: '#/components/responses/Subfolders'
@@ -540,7 +485,7 @@ paths:
         Each result includes a 'dir' property showing its parent directory path.
       parameters:
         - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/path'
+        - $ref: '#/components/parameters/pathParam'
         - $ref: '#/components/parameters/searchFilter'
       responses:
         '200':
@@ -558,8 +503,8 @@ paths:
         Supports HTTP range requests for partial content (video/audio streaming).
         Sets headers for caching and content transfer.
       parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/pathRequired'
+       - $ref: '#/components/parameters/adapter'
+       - $ref: '#/components/parameters/pathRequired'
       responses:
         '200':
           $ref: '#/components/responses/BinaryFile'
@@ -578,8 +523,8 @@ paths:
         Uses MD5 hash as fallback filename for non-ASCII characters.
         Supports HTTP range requests for resumable downloads.
       parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/pathRequired'
+       - $ref: '#/components/parameters/adapter'
+       - $ref: '#/components/parameters/pathRequired'
       responses:
         '200':
           $ref: '#/components/responses/FileDownload'
@@ -598,8 +543,8 @@ paths:
         Name validation: must not contain \/?%*:|"<> characters.
         Returns 400 error if folder/file already exists at that path.
       parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/directoryPathRequired'
+       - $ref: '#/components/parameters/adapter'
+       - $ref: '#/components/parameters/directoryPathRequired'
       requestBody:
         required: true
         content:
@@ -622,8 +567,8 @@ paths:
         Name validation: must not contain \/?%*:|"<> characters.
         Returns 400 error if file/folder already exists at that path.
       parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/directoryPathRequired'
+       - $ref: '#/components/parameters/adapter'
+       - $ref: '#/components/parameters/directoryPathRequired'
       requestBody:
         required: true
         content:
