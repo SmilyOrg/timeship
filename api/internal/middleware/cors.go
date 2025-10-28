@@ -21,8 +21,8 @@ func CORS() func(http.Handler) http.Handler {
 			origins[i] = strings.TrimSpace(origin)
 		}
 	} else {
-		// Default to allowing all origins
-		origins = []string{"*"}
+		// Default to localhost if not set
+		origins = []string{"http://localhost:8080"}
 	}
 
 	// Create CORS handler with configuration
