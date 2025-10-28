@@ -53,11 +53,11 @@ func TestGetIndex(t *testing.T) {
 		}
 
 		// Create request
-		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index", nil)
 		w := httptest.NewRecorder()
 
-		// Call handler
-		server.GetIndex(w, req, GetIndexParams{})
+		// Call handler with new unified Get method
+		server.Get(w, req, GetParams{Q: GetParamsQIndex})
 
 		// Check response
 		resp := w.Result()
@@ -124,11 +124,11 @@ func TestGetIndex(t *testing.T) {
 			t.Fatalf("failed to create server: %v", err)
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/api/index?adapter=custom", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index&adapter=custom", nil)
 		w := httptest.NewRecorder()
 
 		adapterParam := Adapter("custom")
-		server.GetIndex(w, req, GetIndexParams{Adapter: &adapterParam})
+		server.Get(w, req, GetParams{Q: GetParamsQIndex, Adapter: &adapterParam})
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusOK {
@@ -154,11 +154,11 @@ func TestGetIndex(t *testing.T) {
 			t.Fatalf("failed to create server: %v", err)
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/api/index?path=local://subdir", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index&path=local://subdir", nil)
 		w := httptest.NewRecorder()
 
-		pathParam := PathParam("local://subdir")
-		server.GetIndex(w, req, GetIndexParams{Path: &pathParam})
+		pathParam := "local://subdir"
+		server.Get(w, req, GetParams{Q: GetParamsQIndex, Path: &pathParam})
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusOK {
@@ -185,11 +185,11 @@ func TestGetIndex(t *testing.T) {
 			t.Fatalf("failed to create server: %v", err)
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/api/index?adapter=invalid", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index&adapter=invalid", nil)
 		w := httptest.NewRecorder()
 
 		invalidAdapter := Adapter("invalid")
-		server.GetIndex(w, req, GetIndexParams{Adapter: &invalidAdapter})
+		server.Get(w, req, GetParams{Q: GetParamsQIndex, Adapter: &invalidAdapter})
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusBadRequest {
@@ -214,10 +214,10 @@ func TestGetIndex(t *testing.T) {
 			t.Fatalf("failed to create server: %v", err)
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index", nil)
 		w := httptest.NewRecorder()
 
-		server.GetIndex(w, req, GetIndexParams{})
+		server.Get(w, req, GetParams{Q: GetParamsQIndex})
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusInternalServerError {
@@ -249,10 +249,10 @@ func TestGetIndex(t *testing.T) {
 			t.Fatalf("failed to create server: %v", err)
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index", nil)
 		w := httptest.NewRecorder()
 
-		server.GetIndex(w, req, GetIndexParams{})
+		server.Get(w, req, GetParams{Q: GetParamsQIndex})
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusNotImplemented {
@@ -274,10 +274,10 @@ func TestGetIndex(t *testing.T) {
 			t.Fatalf("failed to create server: %v", err)
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index", nil)
 		w := httptest.NewRecorder()
 
-		server.GetIndex(w, req, GetIndexParams{})
+		server.Get(w, req, GetParams{Q: GetParamsQIndex})
 
 		resp := w.Result()
 		if resp.StatusCode != http.StatusInternalServerError {
@@ -312,10 +312,10 @@ func TestGetIndex(t *testing.T) {
 			t.Fatalf("failed to create server: %v", err)
 		}
 
-		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index", nil)
 		w := httptest.NewRecorder()
 
-		server.GetIndex(w, req, GetIndexParams{})
+		server.Get(w, req, GetParams{Q: GetParamsQIndex})
 
 		var response DirectoryListingResponse
 		json.NewDecoder(w.Result().Body).Decode(&response)

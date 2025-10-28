@@ -1,7 +1,11 @@
-openapi: 3.0.3
+openapi: 3.1.0
 info:
   title: VueFinder API
-  description: File management API for VueFinder
+  description: |
+    File management API for VueFinder using query-based routing.
+    
+    All operations are performed through a single endpoint with the operation specified 
+    via the 'q' query parameter (e.g., ?q=index, ?q=upload, ?q=delete).
   version: 1.0.0
 servers:
   - url: /api
@@ -387,6 +391,35 @@ components:
             $ref: '#/components/schemas/ErrorResponse'
 
   parameters:
+    operation:
+      name: q
+      in: query
+      required: true
+      description: |
+        Operation to perform. This parameter routes the request to the appropriate handler method.
+        
+        Valid operations and their HTTP methods:
+        - GET: index, subfolders, download, preview, search
+        - POST: newfolder, newfile, rename, move, delete, upload, archive, unarchive, save
+      schema:
+        type: string
+        enum:
+          - index
+          - subfolders
+          - download
+          - preview
+          - search
+          - newfolder
+          - newfile
+          - rename
+          - move
+          - delete
+          - upload
+          - archive
+          - unarchive
+          - save
+      example: index
+    
     adapter:
       name: adapter
       in: query
@@ -395,54 +428,20 @@ components:
         
         Behavior:
         - If omitted or null: Server returns the first configured adapter in the response, allowing clients to discover available adapters
-        - If provided but invalid: Server returns 400 Bad Request error
+        - If provided but invalid: Server returns the first configured adapter (fallback behavior)
         - If provided and valid: Server uses the specified adapter
         
-        This allows clients to start with adapter=null, receive the adapter list in the /index response, 
+        This allows clients to start with adapter=null, receive the adapter list in the response, 
         and then use a specific adapter in subsequent requests.
       required: false
       schema:
         $ref: '#/components/schemas/Adapter'
-    
-    pathParam:
-      name: path
-      in: query
-      required: false
-      description: Directory or file path with adapter prefix. Defaults to 'adapter://' (root of adapter)
-      schema:
-        $ref: '#/components/schemas/DirectoryPath'
-    
-    pathRequired:
-      name: path
-      in: query
-      required: true
-      description: Full path to the file
-      schema:
-        $ref: '#/components/schemas/Path'
-    
-    directoryPathRequired:
-      name: path
-      in: query
-      required: true
-      description: Directory path
-      schema:
-        $ref: '#/components/schemas/DirectoryPath'
-    
-    searchFilter:
-      name: filter
-      in: query
-      required: true
-      description: Search filter/pattern (case-insensitive, uses fnmatch with wildcards)
-      schema:
-        $ref: '#/components/schemas/SearchFilter'
 
 paths:
   /:
     options:
       summary: CORS preflight
-      description: Handle CORS preflight requests
-      tags:
-        - Directory Operations
+      description: Handle CORS preflight requests for all operations
       responses:
         '200':
           description: CORS headers set
@@ -450,167 +449,191 @@ paths:
             Access-Control-Allow-Origin:
               schema:
                 type: string
+                example: "*"
             Access-Control-Allow-Headers:
               schema:
                 type: string
-
-  /index:
+                example: "*"
+    
     get:
-      summary: List directory contents
-      tags:
-        - Directory Operations
+      summary: Execute read operations
       description: |
-        Get list of files and directories at the specified path. Returns directories first, then files.
-        Each file includes basename, extension, storage key, and mime_type (if detectable).
-        Public URLs are added if publicLinks config matches the path.
+        Main endpoint for all GET operations (read-only). The specific operation is determined 
+        by the 'q' query parameter.
+        
+        Supported operations:
+        - **index**: List directory contents
+        - **subfolders**: List immediate subdirectories
+        - **search**: Search files recursively by name
+        - **preview**: Stream file content for preview
+        - **download**: Download file with attachment disposition
       parameters:
+        - $ref: '#/components/parameters/operation'
         - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/pathParam'
+        - name: path
+          in: query
+          required: false
+          description: |
+            Directory or file path with adapter prefix. Required for some operations.
+            - For index/subfolders/search: Directory path (defaults to 'adapter://')
+            - For preview/download: Full file path (required)
+          schema:
+            type: string
+          examples:
+            directory:
+              value: 'local://documents'
+              summary: Directory path
+            file:
+              value: 'local://documents/report.pdf'
+              summary: File path
+        - name: filter
+          in: query
+          required: false
+          description: Search filter (required when q=search). Case-insensitive, uses fnmatch with wildcards.
+          schema:
+            $ref: '#/components/schemas/SearchFilter'
       responses:
         '200':
-          $ref: '#/components/responses/DirectoryListing'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /subfolders:
-    get:
-      summary: List subfolders
-      tags:
-        - Directory Operations
-      description: |
-        Get list of immediate subdirectories at the specified path (non-recursive).
-        Used for tree navigation and folder browsing. Only returns directories, not files.
-      parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/pathParam'
-      responses:
-        '200':
-          $ref: '#/components/responses/Subfolders'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /search:
-    get:
-      summary: Search files
-      tags:
-        - Directory Operations
-      description: |
-        Search for files recursively by name filter using case-insensitive wildcard matching (fnmatch).
-        Returns only files (not directories) that match the filter pattern.
-        Each result includes a 'dir' property showing its parent directory path.
-      parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/pathParam'
-        - $ref: '#/components/parameters/searchFilter'
-      responses:
-        '200':
-          $ref: '#/components/responses/DirectoryListing'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /preview:
-    get:
-      summary: Preview file
-      tags:
-        - File Content
-      description: |
-        Stream file content for preview in browser. Returns the file with appropriate MIME type.
-        Supports HTTP range requests for partial content (video/audio streaming).
-        Sets headers for caching and content transfer.
-      parameters:
-       - $ref: '#/components/parameters/adapter'
-       - $ref: '#/components/parameters/pathRequired'
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryFile'
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/DirectoryListingResponse'
+                  - $ref: '#/components/schemas/SubfoldersResponse'
+              examples:
+                indexResponse:
+                  summary: Response for q=index
+                  value:
+                    adapter: local
+                    storages: [local, s3]
+                    dirname: local://documents
+                    files:
+                      - path: local://documents/report.pdf
+                        type: file
+                        basename: report.pdf
+                        extension: pdf
+                        storage: local
+                        mime_type: application/pdf
+                subfoldersResponse:
+                  summary: Response for q=subfolders
+                  value:
+                    folders:
+                      - adapter: local
+                        path: local://documents/archive
+                        basename: archive
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+                description: Binary file content (for q=preview or q=download)
         '206':
-          $ref: '#/components/responses/PartialContent'
+          description: Partial content (for HTTP range requests on preview/download)
+          headers:
+            Content-Type:
+              schema:
+                $ref: '#/components/schemas/MimeType'
+            Content-Length:
+              schema:
+                $ref: '#/components/schemas/FileSize'
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
         '400':
           $ref: '#/components/responses/Error'
-
-  /download:
-    get:
-      summary: Download file
-      tags:
-        - File Content
-      description: |
-        Download file with Content-Disposition header set to attachment, prompting browser to save the file.
-        Uses MD5 hash as fallback filename for non-ASCII characters.
-        Supports HTTP range requests for resumable downloads.
-      parameters:
-       - $ref: '#/components/parameters/adapter'
-       - $ref: '#/components/parameters/pathRequired'
-      responses:
-        '200':
-          $ref: '#/components/responses/FileDownload'
-        '206':
-          $ref: '#/components/responses/PartialContent'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /newfolder:
+    
     post:
-      summary: Create new folder
-      tags:
-        - File Operations
+      summary: Execute write operations
       description: |
-        Create a new directory at the specified path.
-        Name validation: must not contain \/?%*:|"<> characters.
-        Returns 400 error if folder/file already exists at that path.
+        Main endpoint for all POST operations (write/modify). The specific operation is 
+        determined by the 'q' query parameter.
+        
+        Supported operations:
+        - **newfolder**: Create a new directory
+        - **newfile**: Create a new empty file
+        - **upload**: Upload file content
+        - **save**: Save/update file content
+        - **rename**: Rename a file or folder
+        - **move**: Move files/folders to new location
+        - **delete**: Delete files/folders
+        - **archive**: Create ZIP archive from files/folders
+        - **unarchive**: Extract ZIP archive
+        
+        Note: These operations are blocked if the adapter is read-only.
       parameters:
-       - $ref: '#/components/parameters/adapter'
-       - $ref: '#/components/parameters/directoryPathRequired'
+        - $ref: '#/components/parameters/operation'
+        - $ref: '#/components/parameters/adapter'
+        - name: path
+          in: query
+          required: true
+          description: |
+            Directory or file path with adapter prefix.
+            - For newfolder/newfile/upload/move/delete/archive/unarchive: Directory path where operation occurs
+            - For save/rename: Full path to the file
+          schema:
+            type: string
+          examples:
+            directory:
+              value: 'local://documents'
+            file:
+              value: 'local://documents/notes.txt'
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/DirectoryListing'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /newfile:
-    post:
-      summary: Create new file
-      tags:
-        - File Operations
-      description: |
-        Create a new empty file at the specified path.
-        Name validation: must not contain \/?%*:|"<> characters.
-        Returns 400 error if file/folder already exists at that path.
-      parameters:
-       - $ref: '#/components/parameters/adapter'
-       - $ref: '#/components/parameters/directoryPathRequired'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/CreateRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/DirectoryListing'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /upload:
-    post:
-      summary: Upload file
-      tags:
-        - File Content
-      description: |
-        Upload a file to the specified directory path.
-        Writes file stream directly to storage using writeStream().
-        Returns simple success response ['ok'] on completion.
-      parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/directoryPathRequired'
-      requestBody:
-        required: true
-        content:
+              oneOf:
+                - $ref: '#/components/schemas/CreateRequest'
+                - $ref: '#/components/schemas/RenameRequest'
+                - $ref: '#/components/schemas/MoveRequest'
+                - $ref: '#/components/schemas/DeleteRequest'
+                - $ref: '#/components/schemas/ArchiveRequest'
+                - $ref: '#/components/schemas/UnarchiveRequest'
+                - $ref: '#/components/schemas/SaveRequest'
+            examples:
+              newfolder:
+                summary: Create folder (q=newfolder)
+                value:
+                  name: "2024-reports"
+              newfile:
+                summary: Create file (q=newfile)
+                value:
+                  name: "notes.txt"
+              rename:
+                summary: Rename (q=rename)
+                value:
+                  item: "local://documents/old-name.txt"
+                  name: "new-name.txt"
+              move:
+                summary: Move files (q=move)
+                value:
+                  item: "local://archive"
+                  items:
+                    - path: "local://documents/file1.txt"
+                      type: file
+              delete:
+                summary: Delete files (q=delete)
+                value:
+                  items:
+                    - path: "local://temp/old-file.txt"
+                      type: file
+              archive:
+                summary: Create archive (q=archive)
+                value:
+                  name: "backup-2024"
+                  items:
+                    - path: "local://documents/file1.pdf"
+                      type: file
+              unarchive:
+                summary: Extract archive (q=unarchive)
+                value:
+                  item: "local://downloads/backup.zip"
+              save:
+                summary: Save file content (q=save)
+                value:
+                  content: "Updated file content..."
           multipart/form-data:
             schema:
               type: object
@@ -624,158 +647,31 @@ paths:
                   description: File data to upload
                 name:
                   type: string
-                  description: Target filename (appended to path with DIRECTORY_SEPARATOR)
-                  example: 'document.pdf'
+                  description: Target filename
       responses:
         '200':
-          $ref: '#/components/responses/UploadSuccess'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /save:
-    post:
-      summary: Save file content
-      tags:
-        - File Content
-      description: |
-        Save text content to an existing file, overwriting its contents.
-        After writing, returns the file content via preview (streamFile).
-        Used for text editor functionality.
-      parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/pathRequired'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/SaveRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/BinaryFile'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /rename:
-    post:
-      summary: Rename file or folder
-      tags:
-        - File Operations
-      description: |
-        Rename a file or directory by moving it to a new name in the same directory.
-        Uses filesystem move() operation. Returns 400 if target name already exists.
-      parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/directoryPathRequired'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RenameRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/DirectoryListing'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /move:
-    post:
-      summary: Move files or folders
-      tags:
-        - File Operations
-      description: |
-        Move one or more files/folders to a new location.
-        Validates that no target conflicts exist before performing any moves.
-        If any target already exists, returns 400 error without moving anything.
-        Target paths are constructed as: destination + DIRECTORY_SEPARATOR + basename(source).
-      parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/directoryPathRequired'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/MoveRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/DirectoryListing'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /delete:
-    post:
-      summary: Delete files or folders
-      tags:
-        - File Operations
-      description: |
-        Delete one or more files or directories.
-        Uses delete() for files and deleteDirectory() for directories based on 'type' property.
-        Directories are deleted recursively with all contents.
-      parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/directoryPathRequired'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/DeleteRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/DirectoryListing'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /archive:
-    post:
-      summary: Create archive
-      tags:
-        - Archive Operations
-      description: |
-        Create a ZIP archive from selected files and/or folders.
-        Extension '.zip' is automatically appended to the name.
-        For directories, recursively includes all files maintaining directory structure.
-        Paths in ZIP are relative to the current path (strips path prefix).
-        Uses temporary file during creation, then streams to storage.
-        Returns 400 if archive already exists.
-      parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/directoryPathRequired'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ArchiveRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/DirectoryListing'
-        '400':
-          $ref: '#/components/responses/Error'
-
-  /unarchive:
-    post:
-      summary: Extract archive
-      tags:
-        - Archive Operations
-      description: |
-        Extract a ZIP archive to a new folder named after the archive (without .zip extension).
-        Extraction path: current_path + DIRECTORY_SEPARATOR + pathinfo(archive, PATHINFO_FILENAME).
-        Maintains directory structure from ZIP file.
-        Uses temporary file for extraction, then streams files to storage.
-      parameters:
-        - $ref: '#/components/parameters/adapter'
-        - $ref: '#/components/parameters/directoryPathRequired'
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/UnarchiveRequest'
-      responses:
-        '200':
-          $ref: '#/components/responses/DirectoryListing'
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: '#/components/schemas/DirectoryListingResponse'
+                  - $ref: '#/components/schemas/UploadSuccessResponse'
+              examples:
+                directoryListing:
+                  summary: Most operations return updated directory listing
+                  value:
+                    adapter: local
+                    storages: [local]
+                    dirname: local://documents
+                    files: []
+                uploadSuccess:
+                  summary: Upload returns simple success (q=upload)
+                  value: ["ok"]
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+                description: Binary file content (for q=save, returns file via preview)
         '400':
           $ref: '#/components/responses/Error'

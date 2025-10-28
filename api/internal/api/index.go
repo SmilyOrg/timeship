@@ -8,8 +8,8 @@ import (
 	"github.com/smilyorg/timeship/api/internal/adapter"
 )
 
-// GetIndex implements GET /api/index
-func (s *Server) GetIndex(w http.ResponseWriter, r *http.Request, params GetIndexParams) {
+// getIndex implements the index operation
+func (s *Server) getIndex(w http.ResponseWriter, params GetParams) {
 	// Get the adapter
 	adapterInstance, adapterKey, err := s.getAdapter(params.Adapter)
 	if err != nil {
@@ -31,7 +31,7 @@ func (s *Server) GetIndex(w http.ResponseWriter, r *http.Request, params GetInde
 	// Determine the path to list
 	path := adapterKey + "://"
 	if params.Path != nil {
-		path = string(*params.Path)
+		path = *params.Path
 	}
 
 	// List the directory contents

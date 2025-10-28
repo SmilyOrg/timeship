@@ -6,6 +6,7 @@
 package api
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -22,6 +23,60 @@ const (
 const (
 	Dir  FileType = "dir"
 	File FileType = "file"
+)
+
+// Defines values for Operation.
+const (
+	OperationArchive    Operation = "archive"
+	OperationDelete     Operation = "delete"
+	OperationDownload   Operation = "download"
+	OperationIndex      Operation = "index"
+	OperationMove       Operation = "move"
+	OperationNewfile    Operation = "newfile"
+	OperationNewfolder  Operation = "newfolder"
+	OperationPreview    Operation = "preview"
+	OperationRename     Operation = "rename"
+	OperationSave       Operation = "save"
+	OperationSearch     Operation = "search"
+	OperationSubfolders Operation = "subfolders"
+	OperationUnarchive  Operation = "unarchive"
+	OperationUpload     Operation = "upload"
+)
+
+// Defines values for GetParamsQ.
+const (
+	GetParamsQArchive    GetParamsQ = "archive"
+	GetParamsQDelete     GetParamsQ = "delete"
+	GetParamsQDownload   GetParamsQ = "download"
+	GetParamsQIndex      GetParamsQ = "index"
+	GetParamsQMove       GetParamsQ = "move"
+	GetParamsQNewfile    GetParamsQ = "newfile"
+	GetParamsQNewfolder  GetParamsQ = "newfolder"
+	GetParamsQPreview    GetParamsQ = "preview"
+	GetParamsQRename     GetParamsQ = "rename"
+	GetParamsQSave       GetParamsQ = "save"
+	GetParamsQSearch     GetParamsQ = "search"
+	GetParamsQSubfolders GetParamsQ = "subfolders"
+	GetParamsQUnarchive  GetParamsQ = "unarchive"
+	GetParamsQUpload     GetParamsQ = "upload"
+)
+
+// Defines values for PostParamsQ.
+const (
+	Archive    PostParamsQ = "archive"
+	Delete     PostParamsQ = "delete"
+	Download   PostParamsQ = "download"
+	Index      PostParamsQ = "index"
+	Move       PostParamsQ = "move"
+	Newfile    PostParamsQ = "newfile"
+	Newfolder  PostParamsQ = "newfolder"
+	Preview    PostParamsQ = "preview"
+	Rename     PostParamsQ = "rename"
+	Save       PostParamsQ = "save"
+	Search     PostParamsQ = "search"
+	Subfolders PostParamsQ = "subfolders"
+	Unarchive  PostParamsQ = "unarchive"
+	Upload     PostParamsQ = "upload"
 )
 
 // Adapter Storage adapter key
@@ -57,7 +112,12 @@ type DeleteRequest struct {
 	Items FileItemList `json:"items"`
 }
 
-// DirectoryListingResponse Standard response containing directory contents and metadata
+// DirectoryListingResponse Standard response containing directory contents and metadata.
+//
+// The 'adapter' field indicates which adapter was used for this response. When clients
+// make their first request without specifying an adapter parameter (or with adapter=null),
+// this field will contain the first configured adapter, allowing clients to discover and
+// use it for subsequent requests. The 'storages' array contains all available adapters.
 type DirectoryListingResponse struct {
 	// Adapter Storage adapter key
 	Adapter Adapter `json:"adapter"`
@@ -219,239 +279,104 @@ type UploadSuccessResponse = []string
 // Url Public URL to access the file
 type Url = string
 
-// DirectoryPathRequired Directory path with adapter prefix
-type DirectoryPathRequired = DirectoryPath
-
-// PathParam Directory path with adapter prefix
-type PathParam = DirectoryPath
-
-// PathRequired Full path with adapter prefix
-type PathRequired = Path
-
-// DirectoryListing Standard response containing directory contents and metadata
-type DirectoryListing = DirectoryListingResponse
+// Operation defines model for operation.
+type Operation string
 
 // Error Standard error response returned with 400 status code
 type Error = ErrorResponse
 
-// Subfolders defines model for Subfolders.
-type Subfolders = SubfoldersResponse
+// GetParams defines parameters for Get.
+type GetParams struct {
+	// Q Operation to perform. This parameter routes the request to the appropriate handler method.
+	//
+	// Valid operations and their HTTP methods:
+	// - GET: index, subfolders, download, preview, search
+	// - POST: newfolder, newfile, rename, move, delete, upload, archive, unarchive, save
+	Q GetParamsQ `form:"q" json:"q"`
 
-// UploadSuccess defines model for UploadSuccess.
-type UploadSuccess = UploadSuccessResponse
-
-// PostArchiveParams defines parameters for PostArchive.
-type PostArchiveParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
+	// Adapter Storage adapter key to use. Optional parameter that allows clients to specify which storage adapter to use.
+	//
+	// Behavior:
+	// - If omitted or null: Server returns the first configured adapter in the response, allowing clients to discover available adapters
+	// - If provided but invalid: Server returns the first configured adapter (fallback behavior)
+	// - If provided and valid: Server uses the specified adapter
+	//
+	// This allows clients to start with adapter=null, receive the adapter list in the response,
+	// and then use a specific adapter in subsequent requests.
 	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
 
-	// Path Directory path
-	Path DirectoryPathRequired `form:"path" json:"path"`
+	// Path Directory or file path with adapter prefix. Required for some operations.
+	// - For index/subfolders/search: Directory path (defaults to 'adapter://')
+	// - For preview/download: Full file path (required)
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+
+	// Filter Search filter (required when q=search). Case-insensitive, uses fnmatch with wildcards.
+	Filter *SearchFilter `form:"filter,omitempty" json:"filter,omitempty"`
 }
 
-// PostDeleteParams defines parameters for PostDelete.
-type PostDeleteParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
+// GetParamsQ defines parameters for Get.
+type GetParamsQ string
 
-	// Path Directory path
-	Path DirectoryPathRequired `form:"path" json:"path"`
+// PostJSONBody defines parameters for Post.
+type PostJSONBody struct {
+	union json.RawMessage
 }
 
-// GetDownloadParams defines parameters for GetDownload.
-type GetDownloadParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Full path to the file
-	Path PathRequired `form:"path" json:"path"`
-}
-
-// GetIndexParams defines parameters for GetIndex.
-type GetIndexParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory or file path with adapter prefix. Defaults to 'adapter://' (root of adapter)
-	Path *PathParam `form:"path,omitempty" json:"path,omitempty"`
-}
-
-// PostMoveParams defines parameters for PostMove.
-type PostMoveParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory path
-	Path DirectoryPathRequired `form:"path" json:"path"`
-}
-
-// PostNewfileParams defines parameters for PostNewfile.
-type PostNewfileParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory path
-	Path DirectoryPathRequired `form:"path" json:"path"`
-}
-
-// PostNewfolderParams defines parameters for PostNewfolder.
-type PostNewfolderParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory path
-	Path DirectoryPathRequired `form:"path" json:"path"`
-}
-
-// GetPreviewParams defines parameters for GetPreview.
-type GetPreviewParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Full path to the file
-	Path PathRequired `form:"path" json:"path"`
-}
-
-// PostRenameParams defines parameters for PostRename.
-type PostRenameParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory path
-	Path DirectoryPathRequired `form:"path" json:"path"`
-}
-
-// PostSaveParams defines parameters for PostSave.
-type PostSaveParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Full path to the file
-	Path PathRequired `form:"path" json:"path"`
-}
-
-// GetSearchParams defines parameters for GetSearch.
-type GetSearchParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory or file path with adapter prefix. Defaults to 'adapter://' (root of adapter)
-	Path *PathParam `form:"path,omitempty" json:"path,omitempty"`
-
-	// Filter Search filter/pattern (case-insensitive, uses fnmatch with wildcards)
-	Filter SearchFilter `form:"filter" json:"filter"`
-}
-
-// GetSubfoldersParams defines parameters for GetSubfolders.
-type GetSubfoldersParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory or file path with adapter prefix. Defaults to 'adapter://' (root of adapter)
-	Path *PathParam `form:"path,omitempty" json:"path,omitempty"`
-}
-
-// PostUnarchiveParams defines parameters for PostUnarchive.
-type PostUnarchiveParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory path
-	Path DirectoryPathRequired `form:"path" json:"path"`
-}
-
-// PostUploadMultipartBody defines parameters for PostUpload.
-type PostUploadMultipartBody struct {
+// PostMultipartBody defines parameters for Post.
+type PostMultipartBody struct {
 	// File File data to upload
 	File openapi_types.File `json:"file"`
 
-	// Name Target filename (appended to path with DIRECTORY_SEPARATOR)
+	// Name Target filename
 	Name string `json:"name"`
 }
 
-// PostUploadParams defines parameters for PostUpload.
-type PostUploadParams struct {
-	// Adapter Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
+// PostParams defines parameters for Post.
+type PostParams struct {
+	// Q Operation to perform. This parameter routes the request to the appropriate handler method.
+	//
+	// Valid operations and their HTTP methods:
+	// - GET: index, subfolders, download, preview, search
+	// - POST: newfolder, newfile, rename, move, delete, upload, archive, unarchive, save
+	Q PostParamsQ `form:"q" json:"q"`
+
+	// Adapter Storage adapter key to use. Optional parameter that allows clients to specify which storage adapter to use.
+	//
+	// Behavior:
+	// - If omitted or null: Server returns the first configured adapter in the response, allowing clients to discover available adapters
+	// - If provided but invalid: Server returns the first configured adapter (fallback behavior)
+	// - If provided and valid: Server uses the specified adapter
+	//
+	// This allows clients to start with adapter=null, receive the adapter list in the response,
+	// and then use a specific adapter in subsequent requests.
 	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
 
-	// Path Directory path
-	Path DirectoryPathRequired `form:"path" json:"path"`
+	// Path Directory or file path with adapter prefix.
+	// - For newfolder/newfile/upload/move/delete/archive/unarchive: Directory path where operation occurs
+	// - For save/rename: Full path to the file
+	Path string `form:"path" json:"path"`
 }
 
-// PostArchiveJSONRequestBody defines body for PostArchive for application/json ContentType.
-type PostArchiveJSONRequestBody = ArchiveRequest
+// PostParamsQ defines parameters for Post.
+type PostParamsQ string
 
-// PostDeleteJSONRequestBody defines body for PostDelete for application/json ContentType.
-type PostDeleteJSONRequestBody = DeleteRequest
+// PostJSONRequestBody defines body for Post for application/json ContentType.
+type PostJSONRequestBody PostJSONBody
 
-// PostMoveJSONRequestBody defines body for PostMove for application/json ContentType.
-type PostMoveJSONRequestBody = MoveRequest
-
-// PostNewfileJSONRequestBody defines body for PostNewfile for application/json ContentType.
-type PostNewfileJSONRequestBody = CreateRequest
-
-// PostNewfolderJSONRequestBody defines body for PostNewfolder for application/json ContentType.
-type PostNewfolderJSONRequestBody = CreateRequest
-
-// PostRenameJSONRequestBody defines body for PostRename for application/json ContentType.
-type PostRenameJSONRequestBody = RenameRequest
-
-// PostSaveJSONRequestBody defines body for PostSave for application/json ContentType.
-type PostSaveJSONRequestBody = SaveRequest
-
-// PostUnarchiveJSONRequestBody defines body for PostUnarchive for application/json ContentType.
-type PostUnarchiveJSONRequestBody = UnarchiveRequest
-
-// PostUploadMultipartRequestBody defines body for PostUpload for multipart/form-data ContentType.
-type PostUploadMultipartRequestBody PostUploadMultipartBody
+// PostMultipartRequestBody defines body for Post for multipart/form-data ContentType.
+type PostMultipartRequestBody PostMultipartBody
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// Execute read operations
+	// (GET /)
+	Get(w http.ResponseWriter, r *http.Request, params GetParams)
 	// CORS preflight
 	// (OPTIONS /)
 	Options(w http.ResponseWriter, r *http.Request)
-	// Create archive
-	// (POST /archive)
-	PostArchive(w http.ResponseWriter, r *http.Request, params PostArchiveParams)
-	// Delete files or folders
-	// (POST /delete)
-	PostDelete(w http.ResponseWriter, r *http.Request, params PostDeleteParams)
-	// Download file
-	// (GET /download)
-	GetDownload(w http.ResponseWriter, r *http.Request, params GetDownloadParams)
-	// List directory contents
-	// (GET /index)
-	GetIndex(w http.ResponseWriter, r *http.Request, params GetIndexParams)
-	// Move files or folders
-	// (POST /move)
-	PostMove(w http.ResponseWriter, r *http.Request, params PostMoveParams)
-	// Create new file
-	// (POST /newfile)
-	PostNewfile(w http.ResponseWriter, r *http.Request, params PostNewfileParams)
-	// Create new folder
-	// (POST /newfolder)
-	PostNewfolder(w http.ResponseWriter, r *http.Request, params PostNewfolderParams)
-	// Preview file
-	// (GET /preview)
-	GetPreview(w http.ResponseWriter, r *http.Request, params GetPreviewParams)
-	// Rename file or folder
-	// (POST /rename)
-	PostRename(w http.ResponseWriter, r *http.Request, params PostRenameParams)
-	// Save file content
-	// (POST /save)
-	PostSave(w http.ResponseWriter, r *http.Request, params PostSaveParams)
-	// Search files
-	// (GET /search)
-	GetSearch(w http.ResponseWriter, r *http.Request, params GetSearchParams)
-	// List subfolders
-	// (GET /subfolders)
-	GetSubfolders(w http.ResponseWriter, r *http.Request, params GetSubfoldersParams)
-	// Extract archive
-	// (POST /unarchive)
-	PostUnarchive(w http.ResponseWriter, r *http.Request, params PostUnarchiveParams)
-	// Upload file
-	// (POST /upload)
-	PostUpload(w http.ResponseWriter, r *http.Request, params PostUploadParams)
+	// Execute write operations
+	// (POST /)
+	Post(w http.ResponseWriter, r *http.Request, params PostParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -462,6 +387,64 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// Get operation middleware
+func (siw *ServerInterfaceWrapper) Get(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetParams
+
+	// ------------- Required query parameter "q" -------------
+
+	if paramValue := r.URL.Query().Get("q"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "q", r.URL.Query(), &params.Q)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "adapter" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "path" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "path", r.URL.Query(), &params.Path)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "filter", r.URL.Query(), &params.Filter)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.Get(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // Options operation middleware
 func (siw *ServerInterfaceWrapper) Options(w http.ResponseWriter, r *http.Request) {
@@ -477,13 +460,28 @@ func (siw *ServerInterfaceWrapper) Options(w http.ResponseWriter, r *http.Reques
 	handler.ServeHTTP(w, r)
 }
 
-// PostArchive operation middleware
-func (siw *ServerInterfaceWrapper) PostArchive(w http.ResponseWriter, r *http.Request) {
+// Post operation middleware
+func (siw *ServerInterfaceWrapper) Post(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
 	// Parameter object where we will unmarshal all parameters from the context
-	var params PostArchiveParams
+	var params PostParams
+
+	// ------------- Required query parameter "q" -------------
+
+	if paramValue := r.URL.Query().Get("q"); paramValue != "" {
+
+	} else {
+		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		return
+	}
+
+	err = runtime.BindQueryParameter("form", true, true, "q", r.URL.Query(), &params.Q)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		return
+	}
 
 	// ------------- Optional query parameter "adapter" -------------
 
@@ -509,547 +507,7 @@ func (siw *ServerInterfaceWrapper) PostArchive(w http.ResponseWriter, r *http.Re
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostArchive(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PostDelete operation middleware
-func (siw *ServerInterfaceWrapper) PostDelete(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostDeleteParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostDelete(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetDownload operation middleware
-func (siw *ServerInterfaceWrapper) GetDownload(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetDownloadParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetDownload(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetIndex operation middleware
-func (siw *ServerInterfaceWrapper) GetIndex(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetIndexParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "path" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetIndex(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PostMove operation middleware
-func (siw *ServerInterfaceWrapper) PostMove(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostMoveParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostMove(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PostNewfile operation middleware
-func (siw *ServerInterfaceWrapper) PostNewfile(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostNewfileParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostNewfile(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PostNewfolder operation middleware
-func (siw *ServerInterfaceWrapper) PostNewfolder(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostNewfolderParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostNewfolder(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetPreview operation middleware
-func (siw *ServerInterfaceWrapper) GetPreview(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetPreviewParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetPreview(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PostRename operation middleware
-func (siw *ServerInterfaceWrapper) PostRename(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostRenameParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostRename(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PostSave operation middleware
-func (siw *ServerInterfaceWrapper) PostSave(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostSaveParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostSave(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetSearch operation middleware
-func (siw *ServerInterfaceWrapper) GetSearch(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetSearchParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "path" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "filter" -------------
-
-	if paramValue := r.URL.Query().Get("filter"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "filter"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "filter", r.URL.Query(), &params.Filter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetSearch(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// GetSubfolders operation middleware
-func (siw *ServerInterfaceWrapper) GetSubfolders(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params GetSubfoldersParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "path" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetSubfolders(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PostUnarchive operation middleware
-func (siw *ServerInterfaceWrapper) PostUnarchive(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostUnarchiveParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostUnarchive(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// PostUpload operation middleware
-func (siw *ServerInterfaceWrapper) PostUpload(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostUploadParams
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PostUpload(w, r, params)
+		siw.Handler.Post(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1179,21 +637,9 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
+	m.HandleFunc("GET "+options.BaseURL+"/{$}", wrapper.Get)
 	m.HandleFunc("OPTIONS "+options.BaseURL+"/{$}", wrapper.Options)
-	m.HandleFunc("POST "+options.BaseURL+"/archive", wrapper.PostArchive)
-	m.HandleFunc("POST "+options.BaseURL+"/delete", wrapper.PostDelete)
-	m.HandleFunc("GET "+options.BaseURL+"/download", wrapper.GetDownload)
-	m.HandleFunc("GET "+options.BaseURL+"/index", wrapper.GetIndex)
-	m.HandleFunc("POST "+options.BaseURL+"/move", wrapper.PostMove)
-	m.HandleFunc("POST "+options.BaseURL+"/newfile", wrapper.PostNewfile)
-	m.HandleFunc("POST "+options.BaseURL+"/newfolder", wrapper.PostNewfolder)
-	m.HandleFunc("GET "+options.BaseURL+"/preview", wrapper.GetPreview)
-	m.HandleFunc("POST "+options.BaseURL+"/rename", wrapper.PostRename)
-	m.HandleFunc("POST "+options.BaseURL+"/save", wrapper.PostSave)
-	m.HandleFunc("GET "+options.BaseURL+"/search", wrapper.GetSearch)
-	m.HandleFunc("GET "+options.BaseURL+"/subfolders", wrapper.GetSubfolders)
-	m.HandleFunc("POST "+options.BaseURL+"/unarchive", wrapper.PostUnarchive)
-	m.HandleFunc("POST "+options.BaseURL+"/upload", wrapper.PostUpload)
+	m.HandleFunc("POST "+options.BaseURL+"/{$}", wrapper.Post)
 
 	return m
 }

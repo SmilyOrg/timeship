@@ -64,8 +64,26 @@ func (s *Server) sendError(w http.ResponseWriter, message string, statusCode int
 	json.NewEncoder(w).Encode(response)
 }
 
-// Stub implementations for remaining endpoints
-
 func (s *Server) Options(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// Get handles all GET operations based on the q parameter
+func (s *Server) Get(w http.ResponseWriter, r *http.Request, params GetParams) {
+	// Route based on the operation
+	switch params.Q {
+	case GetParamsQIndex:
+		s.getIndex(w, params)
+	default:
+		s.sendError(w, "Not implemented", http.StatusNotImplemented)
+	}
+}
+
+// Post handles all POST operations based on the q parameter
+func (s *Server) Post(w http.ResponseWriter, r *http.Request, params PostParams) {
+	// Route based on the operation
+	switch params.Q {
+	default:
+		s.sendError(w, "Not implemented", http.StatusNotImplemented)
+	}
 }
