@@ -53,8 +53,11 @@ func main() {
 		}
 	}()
 
-	// Create API server
-	server := api.NewServer(adapters)
+	// Create API server (local is the default adapter)
+	server, err := api.NewServer(adapters, "local")
+	if err != nil {
+		log.Fatalf("Failed to create server: %v", err)
+	}
 
 	// Create HTTP server with generated handler
 	mux := http.NewServeMux()

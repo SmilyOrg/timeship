@@ -10,16 +10,14 @@ import (
 
 // GetIndex implements GET /api/index
 func (s *Server) GetIndex(w http.ResponseWriter, r *http.Request, params GetIndexParams) {
-	// Determine which adapter to use
-	adapterKey := "local"
-	if params.Adapter != nil {
-		adapterKey = string(*params.Adapter)
-	}
-
 	// Get the adapter
-	adapterInstance, ok := s.adapters[adapterKey]
-	if !ok {
-		s.sendError(w, "Invalid or unconfigured adapter", http.StatusBadRequest)
+	adapterInstance, adapterKey, err := s.getAdapter(params.Adapter)
+	if err != nil {
+		if adapterKey == "" {
+			s.sendError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		s.sendError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
@@ -82,10 +80,10 @@ func (s *Server) GetIndex(w http.ResponseWriter, r *http.Request, params GetInde
 		}
 	}
 
-	// Build list of available storage adapters
+	// Build list of available storage adapters (in order)
 	storages := make(AdapterList, 0, len(s.adapters))
-	for key := range s.adapters {
-		storages = append(storages, Adapter(key))
+	for name := range s.adapters {
+		storages = append(storages, Adapter(name))
 	}
 
 	// Create response

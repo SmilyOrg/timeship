@@ -182,7 +182,13 @@ components:
     
     DirectoryListingResponse:
       type: object
-      description: Standard response containing directory contents and metadata
+      description: |
+        Standard response containing directory contents and metadata.
+        
+        The 'adapter' field indicates which adapter was used for this response. When clients 
+        make their first request without specifying an adapter parameter (or with adapter=null), 
+        this field will contain the first configured adapter, allowing clients to discover and 
+        use it for subsequent requests. The 'storages' array contains all available adapters.
       required:
         - adapter
         - storages
@@ -384,7 +390,16 @@ components:
     adapter:
       name: adapter
       in: query
-      description: Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
+      description: |
+        Storage adapter key to use. Optional parameter that allows clients to specify which storage adapter to use.
+        
+        Behavior:
+        - If omitted or null: Server returns the first configured adapter in the response, allowing clients to discover available adapters
+        - If provided but invalid: Server returns 400 Bad Request error
+        - If provided and valid: Server uses the specified adapter
+        
+        This allows clients to start with adapter=null, receive the adapter list in the /index response, 
+        and then use a specific adapter in subsequent requests.
       required: false
       schema:
         $ref: '#/components/schemas/Adapter'

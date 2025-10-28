@@ -22,7 +22,7 @@ func CORS() func(http.Handler) http.Handler {
 		}
 	} else {
 		// Default to localhost if not set
-		origins = []string{"http://localhost:8080"}
+		origins = []string{"http://localhost:5173"}
 	}
 
 	// Create CORS handler with configuration

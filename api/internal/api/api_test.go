@@ -47,7 +47,10 @@ func TestGetIndex(t *testing.T) {
 			"local": mock,
 		}
 
-		server := NewServer(adapters)
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
 
 		// Create request
 		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
@@ -116,7 +119,10 @@ func TestGetIndex(t *testing.T) {
 			"custom": mock,
 		}
 
-		server := NewServer(adapters)
+		server, err := NewServer(adapters, "custom")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/index?adapter=custom", nil)
 		w := httptest.NewRecorder()
@@ -143,7 +149,10 @@ func TestGetIndex(t *testing.T) {
 			"local": mock,
 		}
 
-		server := NewServer(adapters)
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/index?path=local://subdir", nil)
 		w := httptest.NewRecorder()
@@ -165,7 +174,45 @@ func TestGetIndex(t *testing.T) {
 	})
 
 	t.Run("invalid adapter", func(t *testing.T) {
-		server := NewServer(map[string]adapter.Adapter{})
+		// Create server with adapters but request invalid adapter
+		mock := &mockAdapter{nodes: []adapter.FileNode{}}
+		adapters := map[string]adapter.Adapter{
+			"local": mock,
+		}
+
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/index?adapter=invalid", nil)
+		w := httptest.NewRecorder()
+
+		invalidAdapter := Adapter("invalid")
+		server.GetIndex(w, req, GetIndexParams{Adapter: &invalidAdapter})
+
+		resp := w.Result()
+		if resp.StatusCode != http.StatusBadRequest {
+			t.Errorf("expected status 400, got %d", resp.StatusCode)
+		}
+
+		var errorResp ErrorResponse
+		json.NewDecoder(resp.Body).Decode(&errorResp)
+
+		if errorResp.Status != false {
+			t.Error("expected error status to be false")
+		}
+
+		if errorResp.Message == "" {
+			t.Error("expected error message")
+		}
+	})
+
+	t.Run("no adapters configured", func(t *testing.T) {
+		server, err := NewServer(map[string]adapter.Adapter{}, "")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
 		w := httptest.NewRecorder()
@@ -173,8 +220,8 @@ func TestGetIndex(t *testing.T) {
 		server.GetIndex(w, req, GetIndexParams{})
 
 		resp := w.Result()
-		if resp.StatusCode != http.StatusBadRequest {
-			t.Errorf("expected status 400, got %d", resp.StatusCode)
+		if resp.StatusCode != http.StatusInternalServerError {
+			t.Errorf("expected status 500, got %d", resp.StatusCode)
 		}
 
 		var errorResp ErrorResponse
@@ -197,7 +244,10 @@ func TestGetIndex(t *testing.T) {
 			"local": &nonListerAdapter{},
 		}
 
-		server := NewServer(adapters)
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
 		w := httptest.NewRecorder()
@@ -219,7 +269,10 @@ func TestGetIndex(t *testing.T) {
 			"local": mock,
 		}
 
-		server := NewServer(adapters)
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
 		w := httptest.NewRecorder()
@@ -254,7 +307,10 @@ func TestGetIndex(t *testing.T) {
 			"local": mock,
 		}
 
-		server := NewServer(adapters)
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
 
 		req := httptest.NewRequest(http.MethodGet, "/api/index", nil)
 		w := httptest.NewRecorder()
@@ -295,7 +351,10 @@ func TestGetIndex(t *testing.T) {
 }
 
 func TestSendError(t *testing.T) {
-	server := NewServer(map[string]adapter.Adapter{})
+	server, err := NewServer(map[string]adapter.Adapter{}, "")
+	if err != nil {
+		t.Fatalf("failed to create server: %v", err)
+	}
 
 	w := httptest.NewRecorder()
 
