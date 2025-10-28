@@ -1,0 +1,821 @@
+openapi: 3.0.3
+info:
+  title: VueFinder API
+  description: File management API for VueFinder
+  version: 1.0.0
+servers:
+  - url: /api
+    description: API server
+
+tags:
+  - name: Directory Operations
+    description: Operations for browsing and managing directories
+  - name: File Operations
+    description: Operations for creating, modifying, and deleting files and folders
+  - name: File Content
+    description: Operations for reading and writing file content
+  - name: Archive Operations
+    description: Operations for creating and extracting ZIP archives
+
+components:
+  schemas:
+    Adapter:
+      type: string
+      description: Storage adapter key
+      example: 'local'
+    
+    Path:
+      type: string
+      description: Full path with adapter prefix
+      example: 'local://documents/report.pdf'
+    
+    DirectoryPath:
+      type: string
+      description: Directory path with adapter prefix
+      example: 'local://documents'
+      default: 'adapter://'
+    
+    Basename:
+      type: string
+      description: Base name of the file or directory (extracted via basename() function)
+      example: 'report.pdf'
+    
+    Name:
+      type: string
+      description: Name that must not contain \/?%*:|"<> characters
+      pattern: '^[^\\/?%*:|"<>]+$'
+      example: 'new-document.txt'
+    
+    Extension:
+      type: string
+      description: File extension without the dot (extracted via pathinfo)
+      example: 'pdf'
+    
+    MimeType:
+      type: string
+      description: MIME type of the file (detected by filesystem)
+      example: 'application/pdf'
+    
+    Url:
+      type: string
+      format: uri
+      description: Public URL to access the file
+      example: 'https://cdn.example.com/documents/report.pdf'
+    
+    FileSize:
+      type: integer
+      format: int64
+      minimum: 0
+      description: File size in bytes (provided by filesystem StorageAttributes)
+      example: 1048576
+    
+    Timestamp:
+      type: integer
+      format: int64
+      description: Unix timestamp
+      example: 1698364800
+    
+    FileType:
+      type: string
+      enum: [file, dir]
+      description: Type of the node - 'file' for files, 'dir' for directories
+    
+    AdapterList:
+      type: array
+      items:
+        $ref: '#/components/schemas/Adapter'
+      description: List of all available storage adapter keys configured in the system
+      example: ['local', 's3', 'ftp']
+    
+    FileList:
+      type: array
+      items:
+        $ref: '#/components/schemas/FileNode'
+      description: Array of files and directories (directories listed first, then files)
+    
+    FolderList:
+      type: array
+      items:
+        $ref: '#/components/schemas/Folder'
+      description: Array of folders
+    
+    FileItemList:
+      type: array
+      description: Array of items for batch operations
+      minItems: 1
+      items:
+        $ref: '#/components/schemas/FileItem'
+    
+    FileContent:
+      type: string
+      description: Text content of a file
+      example: 'Hello, world!'
+    
+    ArchiveName:
+      type: string
+      description: Archive name without extension (pathinfo PATHINFO_FILENAME extracts this, .zip added automatically)
+      pattern: '^[^\\/?%*:|"<>]+$'
+      example: 'backup-2024'
+    
+    SearchFilter:
+      type: string
+      description: Search filter/pattern (case-insensitive, uses fnmatch with wildcards)
+      minLength: 1
+      example: 'report'
+    
+    FileNode:
+      type: object
+      description: Represents a file or directory in the file system
+      required:
+        - path
+        - type
+        - basename
+        - storage
+      properties:
+        path:
+          allOf:
+            - $ref: '#/components/schemas/Path'
+            - description: Full path to the file or directory, includes adapter prefix (e.g., 'adapter://path/to/file')
+        type:
+          $ref: '#/components/schemas/FileType'
+        basename:
+          $ref: '#/components/schemas/Basename'
+        extension:
+          allOf:
+            - $ref: '#/components/schemas/Extension'
+            - description: File extension without the dot (only present for files, extracted via pathinfo)
+        storage:
+          allOf:
+            - $ref: '#/components/schemas/Adapter'
+            - description: Storage adapter key that this file belongs to
+        mime_type:
+          allOf:
+            - $ref: '#/components/schemas/MimeType'
+            - description: MIME type of the file (only present for files with extensions, detected by filesystem)
+        url:
+          allOf:
+            - $ref: '#/components/schemas/Url'
+            - description: Public URL to access the file (only present if publicLinks config is set and path matches)
+        size:
+          allOf:
+            - $ref: '#/components/schemas/FileSize'
+            - description: File size in bytes (provided by filesystem StorageAttributes)
+        last_modified:
+          allOf:
+            - $ref: '#/components/schemas/Timestamp'
+            - description: Unix timestamp of last modification time (provided by filesystem StorageAttributes)
+        dir:
+          allOf:
+            - $ref: '#/components/schemas/DirectoryPath'
+            - description: Parent directory path (only present in search results, extracted via dirname)
+            - example: 'local://documents'
+    
+    FileItem:
+      type: object
+      description: Reference to a file or directory for batch operations (move, delete, archive)
+      required:
+        - path
+        - type
+      properties:
+        path:
+          allOf:
+            - $ref: '#/components/schemas/Path'
+            - description: Full path to the file or directory to operate on
+            - example: 'local://documents/file.txt'
+        type:
+          allOf:
+            - $ref: '#/components/schemas/FileType'
+            - description: Type of item - determines whether to use delete() or deleteDirectory()
+    
+    Folder:
+      type: object
+      description: Subfolder information for tree navigation
+      required:
+        - adapter
+        - path
+        - basename
+      properties:
+        adapter:
+          allOf:
+            - $ref: '#/components/schemas/Adapter'
+            - description: Storage adapter key this folder belongs to
+        path:
+          allOf:
+            - $ref: '#/components/schemas/Path'
+            - description: Full path to the folder including adapter prefix
+            - example: 'local://documents/reports'
+        basename:
+          allOf:
+            - $ref: '#/components/schemas/Basename'
+            - description: Name of the folder (extracted via basename)
+            - example: 'reports'
+    
+    DirectoryListingResponse:
+      type: object
+      description: Standard response containing directory contents and metadata
+      required:
+        - adapter
+        - storages
+        - dirname
+        - files
+      properties:
+        adapter:
+          allOf:
+            - $ref: '#/components/schemas/Adapter'
+            - description: Currently active storage adapter key
+        storages:
+          $ref: '#/components/schemas/AdapterList'
+        dirname:
+          allOf:
+            - $ref: '#/components/schemas/DirectoryPath'
+            - description: Current directory path with adapter prefix
+            - example: 'local://documents'
+        files:
+          $ref: '#/components/schemas/FileList'
+    
+    SubfoldersResponse:
+      type: object
+      required:
+        - folders
+      properties:
+        folders:
+          $ref: '#/components/schemas/FolderList'
+    
+    CreateRequest:
+      type: object
+      description: Request to create a new file or folder (name validated against \\/?%*:|"<> characters)
+      required:
+        - name
+      properties:
+        name:
+          allOf:
+            - $ref: '#/components/schemas/Name'
+            - description: Name of the file or folder to create (must not contain \\/?%*:|"<> characters)
+    
+    RenameRequest:
+      type: object
+      required:
+        - name
+        - item
+      properties:
+        name:
+          allOf:
+            - $ref: '#/components/schemas/Name'
+            - description: New name for the file or folder
+            - example: 'renamed-file.txt'
+        item:
+          allOf:
+            - $ref: '#/components/schemas/Path'
+            - description: Current full path of the item to rename
+            - example: 'local://documents/old-file.txt'
+    
+    MoveRequest:
+      type: object
+      required:
+        - item
+        - items
+      properties:
+        item:
+          allOf:
+            - $ref: '#/components/schemas/DirectoryPath'
+            - description: Target destination directory path where items will be moved
+            - example: 'local://archive'
+        items:
+          allOf:
+            - $ref: '#/components/schemas/FileItemList'
+            - description: Array of items to move (all validated before any moves occur)
+    
+    DeleteRequest:
+      type: object
+      required:
+        - items
+      properties:
+        items:
+          allOf:
+            - $ref: '#/components/schemas/FileItemList'
+            - description: Array of items to delete (type determines deletion method)
+    
+    ArchiveRequest:
+      type: object
+      required:
+        - name
+        - items
+      properties:
+        name:
+          $ref: '#/components/schemas/ArchiveName'
+        items:
+          allOf:
+            - $ref: '#/components/schemas/FileItemList'
+            - description: Array of files and/or folders to include in archive
+    
+    UnarchiveRequest:
+      type: object
+      required:
+        - item
+      properties:
+        item:
+          allOf:
+            - $ref: '#/components/schemas/Path'
+            - description: Full path to the ZIP file to extract
+            - example: 'local://documents/backup-2024.zip'
+    
+    SaveRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          $ref: '#/components/schemas/FileContent'
+    
+    UploadSuccessResponse:
+      type: array
+      items:
+        type: string
+        enum: [ok]
+      minItems: 1
+      maxItems: 1
+      example: ["ok"]
+    
+    ErrorResponse:
+      type: object
+      description: Standard error response returned with 400 status code
+      required:
+        - status
+        - message
+      properties:
+        status:
+          type: boolean
+          enum: [false]
+          description: Always false for error responses
+          example: false
+        message:
+          type: string
+          description: Human-readable error message describing what went wrong
+          example: 'Invalid folder name.'
+
+  responses:
+    DirectoryListing:
+      description: Directory contents with files and folders
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/DirectoryListingResponse'
+    
+    Subfolders:
+      description: List of folders
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/SubfoldersResponse'
+    
+    UploadSuccess:
+      description: Upload successful
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/UploadSuccessResponse'
+    
+    BinaryFile:
+      description: File content streamed as binary data
+      headers:
+        Content-Type:
+          schema:
+            $ref: '#/components/schemas/MimeType'
+          description: MIME type of the file (detected by filesystem or 'application/octet-stream')
+        Content-Length:
+          schema:
+            $ref: '#/components/schemas/FileSize'
+          description: Size of file in bytes
+        Accept-Ranges:
+          schema:
+            type: string
+            enum: [bytes]
+          description: Indicates server supports range requests
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+    
+    PartialContent:
+      description: Partial content for HTTP range requests (status 206)
+      headers:
+        Content-Type:
+          schema:
+            $ref: '#/components/schemas/MimeType'
+          description: MIME type of the file
+        Content-Length:
+          schema:
+            $ref: '#/components/schemas/FileSize'
+          description: Size of the partial content being sent
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+    
+    FileDownload:
+      description: File download with attachment disposition
+      headers:
+        Content-Disposition:
+          schema:
+            type: string
+          description: Attachment header with filename (uses MD5 hash as fallback for special characters)
+          example: 'attachment; filename="report.pdf"'
+      content:
+        application/octet-stream:
+          schema:
+            type: string
+            format: binary
+    
+    Error:
+      description: Error response with status false and error message
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  parameters:
+    adapter:
+      name: adapter
+      in: query
+      description: Storage adapter key to use. If not provided or invalid, defaults to first configured adapter
+      required: false
+      schema:
+        $ref: '#/components/schemas/Adapter'
+    
+    path:
+      name: path
+      in: query
+      required: false
+      description: Directory or file path with adapter prefix. Defaults to 'adapter://' (root of adapter)
+      schema:
+        $ref: '#/components/schemas/DirectoryPath'
+    
+    pathRequired:
+      name: path
+      in: query
+      required: true
+      description: Full path to the file
+      schema:
+        $ref: '#/components/schemas/Path'
+    
+    directoryPathRequired:
+      name: path
+      in: query
+      required: true
+      description: Directory path
+      schema:
+        $ref: '#/components/schemas/DirectoryPath'
+    
+    searchFilter:
+      name: filter
+      in: query
+      required: true
+      description: Search filter/pattern (case-insensitive, uses fnmatch with wildcards)
+      schema:
+        $ref: '#/components/schemas/SearchFilter'
+
+paths:
+  /:
+    options:
+      summary: CORS preflight
+      description: Handle CORS preflight requests
+      tags:
+        - Directory Operations
+      responses:
+        '200':
+          description: CORS headers set
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+            Access-Control-Allow-Headers:
+              schema:
+                type: string
+
+  /index:
+    get:
+      summary: List directory contents
+      tags:
+        - Directory Operations
+      description: |
+        Get list of files and directories at the specified path. Returns directories first, then files.
+        Each file includes basename, extension, storage key, and mime_type (if detectable).
+        Public URLs are added if publicLinks config matches the path.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/path'
+      responses:
+        '200':
+          $ref: '#/components/responses/DirectoryListing'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /subfolders:
+    get:
+      summary: List subfolders
+      tags:
+        - Directory Operations
+      description: |
+        Get list of immediate subdirectories at the specified path (non-recursive).
+        Used for tree navigation and folder browsing. Only returns directories, not files.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/path'
+      responses:
+        '200':
+          $ref: '#/components/responses/Subfolders'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /search:
+    get:
+      summary: Search files
+      tags:
+        - Directory Operations
+      description: |
+        Search for files recursively by name filter using case-insensitive wildcard matching (fnmatch).
+        Returns only files (not directories) that match the filter pattern.
+        Each result includes a 'dir' property showing its parent directory path.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/path'
+        - $ref: '#/components/parameters/searchFilter'
+      responses:
+        '200':
+          $ref: '#/components/responses/DirectoryListing'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /preview:
+    get:
+      summary: Preview file
+      tags:
+        - File Content
+      description: |
+        Stream file content for preview in browser. Returns the file with appropriate MIME type.
+        Supports HTTP range requests for partial content (video/audio streaming).
+        Sets headers for caching and content transfer.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/pathRequired'
+      responses:
+        '200':
+          $ref: '#/components/responses/BinaryFile'
+        '206':
+          $ref: '#/components/responses/PartialContent'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /download:
+    get:
+      summary: Download file
+      tags:
+        - File Content
+      description: |
+        Download file with Content-Disposition header set to attachment, prompting browser to save the file.
+        Uses MD5 hash as fallback filename for non-ASCII characters.
+        Supports HTTP range requests for resumable downloads.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/pathRequired'
+      responses:
+        '200':
+          $ref: '#/components/responses/FileDownload'
+        '206':
+          $ref: '#/components/responses/PartialContent'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /newfolder:
+    post:
+      summary: Create new folder
+      tags:
+        - File Operations
+      description: |
+        Create a new directory at the specified path.
+        Name validation: must not contain \/?%*:|"<> characters.
+        Returns 400 error if folder/file already exists at that path.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/directoryPathRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DirectoryListing'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /newfile:
+    post:
+      summary: Create new file
+      tags:
+        - File Operations
+      description: |
+        Create a new empty file at the specified path.
+        Name validation: must not contain \/?%*:|"<> characters.
+        Returns 400 error if file/folder already exists at that path.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/directoryPathRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DirectoryListing'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /upload:
+    post:
+      summary: Upload file
+      tags:
+        - File Content
+      description: |
+        Upload a file to the specified directory path.
+        Writes file stream directly to storage using writeStream().
+        Returns simple success response ['ok'] on completion.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/directoryPathRequired'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+                - name
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File data to upload
+                name:
+                  type: string
+                  description: Target filename (appended to path with DIRECTORY_SEPARATOR)
+                  example: 'document.pdf'
+      responses:
+        '200':
+          $ref: '#/components/responses/UploadSuccess'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /save:
+    post:
+      summary: Save file content
+      tags:
+        - File Content
+      description: |
+        Save text content to an existing file, overwriting its contents.
+        After writing, returns the file content via preview (streamFile).
+        Used for text editor functionality.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/pathRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SaveRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/BinaryFile'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /rename:
+    post:
+      summary: Rename file or folder
+      tags:
+        - File Operations
+      description: |
+        Rename a file or directory by moving it to a new name in the same directory.
+        Uses filesystem move() operation. Returns 400 if target name already exists.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/directoryPathRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RenameRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DirectoryListing'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /move:
+    post:
+      summary: Move files or folders
+      tags:
+        - File Operations
+      description: |
+        Move one or more files/folders to a new location.
+        Validates that no target conflicts exist before performing any moves.
+        If any target already exists, returns 400 error without moving anything.
+        Target paths are constructed as: destination + DIRECTORY_SEPARATOR + basename(source).
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/directoryPathRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MoveRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DirectoryListing'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /delete:
+    post:
+      summary: Delete files or folders
+      tags:
+        - File Operations
+      description: |
+        Delete one or more files or directories.
+        Uses delete() for files and deleteDirectory() for directories based on 'type' property.
+        Directories are deleted recursively with all contents.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/directoryPathRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeleteRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DirectoryListing'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /archive:
+    post:
+      summary: Create archive
+      tags:
+        - Archive Operations
+      description: |
+        Create a ZIP archive from selected files and/or folders.
+        Extension '.zip' is automatically appended to the name.
+        For directories, recursively includes all files maintaining directory structure.
+        Paths in ZIP are relative to the current path (strips path prefix).
+        Uses temporary file during creation, then streams to storage.
+        Returns 400 if archive already exists.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/directoryPathRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchiveRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DirectoryListing'
+        '400':
+          $ref: '#/components/responses/Error'
+
+  /unarchive:
+    post:
+      summary: Extract archive
+      tags:
+        - Archive Operations
+      description: |
+        Extract a ZIP archive to a new folder named after the archive (without .zip extension).
+        Extraction path: current_path + DIRECTORY_SEPARATOR + pathinfo(archive, PATHINFO_FILENAME).
+        Maintains directory structure from ZIP file.
+        Uses temporary file for extraction, then streams files to storage.
+      parameters:
+        - $ref: '#/components/parameters/adapter'
+        - $ref: '#/components/parameters/directoryPathRequired'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnarchiveRequest'
+      responses:
+        '200':
+          $ref: '#/components/responses/DirectoryListing'
+        '400':
+          $ref: '#/components/responses/Error'
