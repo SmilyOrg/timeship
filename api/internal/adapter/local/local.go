@@ -59,8 +59,9 @@ func (a *Adapter) ListContents(vfPath string) ([]adapter.FileNode, error) {
 		fullPath := adapter.JoinPath(vfPath, info.Name(), adapterName)
 
 		node := adapter.FileNode{
-			Path:     fullPath,
-			Basename: info.Name(),
+			Path:         fullPath,
+			Basename:     info.Name(),
+			LastModified: info.ModTime().Unix(),
 		}
 
 		if info.IsDir() {
@@ -69,7 +70,6 @@ func (a *Adapter) ListContents(vfPath string) ([]adapter.FileNode, error) {
 			node.Type = "file"
 			node.Extension = strings.TrimPrefix(path.Ext(info.Name()), ".")
 			node.Size = info.Size()
-			node.LastModified = info.ModTime().Unix()
 
 			// Detect MIME type
 			if node.Extension != "" {

@@ -58,7 +58,13 @@ func (s *Server) getIndex(w http.ResponseWriter, params GetParams) {
 			Storage:  Adapter(adapterKey),
 		}
 
-		// Add optional fields for files
+		// Add last modified timestamp for both files and directories
+		if node.LastModified > 0 {
+			ts := Timestamp(node.LastModified)
+			apiFiles[i].LastModified = &ts
+		}
+
+		// Add optional fields for files only
 		if node.Type == "file" {
 			if node.Extension != "" {
 				ext := Extension(node.Extension)
@@ -67,10 +73,6 @@ func (s *Server) getIndex(w http.ResponseWriter, params GetParams) {
 			if node.Size > 0 {
 				size := FileSize(node.Size)
 				apiFiles[i].Size = &size
-			}
-			if node.LastModified > 0 {
-				ts := Timestamp(node.LastModified)
-				apiFiles[i].LastModified = &ts
 			}
 			if node.MimeType != "" {
 				mime := MimeType(node.MimeType)
