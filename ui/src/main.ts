@@ -4,6 +4,7 @@ import App from './App.vue'
 
 import VueFinder from 'vuefinder/dist/vuefinder'
 import 'vuefinder/dist/style.css'
+import '@picocss/pico/css/pico.classless.blue.css'
 
 const app = createApp(App)
 
