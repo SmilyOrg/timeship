@@ -1,0 +1,463 @@
+package local
+
+import (
+	"io"
+	"os"
+	"path/filepath"
+	"testing"
+
+	"github.com/smilyorg/timeship/api/internal/adapter"
+)
+
+func TestNew(t *testing.T) {
+	t.Run("valid directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+
+		a, err := New(tmpDir)
+		if err != nil {
+			t.Fatalf("New() failed: %v", err)
+		}
+		defer a.Close()
+
+		if a.root == nil {
+			t.Error("expected root to be set")
+		}
+	})
+
+	t.Run("non-existent directory", func(t *testing.T) {
+		_, err := New("/nonexistent/path")
+		if err == nil {
+			t.Error("expected error for non-existent directory")
+		}
+	})
+
+	t.Run("file instead of directory", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		tmpFile := filepath.Join(tmpDir, "file.txt")
+		if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
+			t.Fatal(err)
+		}
+
+		_, err := New(tmpFile)
+		if err == nil {
+			t.Error("expected error when opening file as root")
+		}
+	})
+}
+
+func TestResolvePath(t *testing.T) {
+	tmpDir := t.TempDir()
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"with prefix", "local://path/to/file", "path/to/file"},
+		{"without prefix", "path/to/file", "path/to/file"},
+		{"root path", "local://", "."},
+		{"empty", "", "."},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := a.resolvePath(tt.input)
+			if result != tt.expected {
+				t.Errorf("resolvePath(%q) = %q, want %q", tt.input, result, tt.expected)
+			}
+		})
+	}
+}
+
+func TestListContents(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test structure
+	os.Mkdir(filepath.Join(tmpDir, "subdir"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, "file1.txt"), []byte("content1"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "file2.md"), []byte("content2"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "subdir", "nested.txt"), []byte("nested"), 0644)
+
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	t.Run("list root", func(t *testing.T) {
+		nodes, err := a.ListContents("")
+		if err != nil {
+			t.Fatalf("ListContents failed: %v", err)
+		}
+
+		if len(nodes) != 3 {
+			t.Errorf("expected 3 nodes, got %d", len(nodes))
+		}
+
+		// Check that we have the expected files
+		foundDir := false
+		foundFile1 := false
+		foundFile2 := false
+
+		for _, node := range nodes {
+			switch node.Basename {
+			case "subdir":
+				foundDir = true
+				if node.Type != "dir" {
+					t.Error("subdir should be type 'dir'")
+				}
+			case "file1.txt":
+				foundFile1 = true
+				if node.Type != "file" {
+					t.Error("file1.txt should be type 'file'")
+				}
+				if node.Extension != "txt" {
+					t.Errorf("file1.txt extension = %q, want 'txt'", node.Extension)
+				}
+				if node.Size != 8 {
+					t.Errorf("file1.txt size = %d, want 8", node.Size)
+				}
+			case "file2.md":
+				foundFile2 = true
+				if node.Extension != "md" {
+					t.Errorf("file2.md extension = %q, want 'md'", node.Extension)
+				}
+			}
+		}
+
+		if !foundDir || !foundFile1 || !foundFile2 {
+			t.Error("missing expected files/directories")
+		}
+	})
+
+	t.Run("list with local:// prefix", func(t *testing.T) {
+		nodes, err := a.ListContents("local://")
+		if err != nil {
+			t.Fatalf("ListContents failed: %v", err)
+		}
+
+		if len(nodes) != 3 {
+			t.Errorf("expected 3 nodes, got %d", len(nodes))
+		}
+	})
+
+	t.Run("list subdirectory", func(t *testing.T) {
+		nodes, err := a.ListContents("subdir")
+		if err != nil {
+			t.Fatalf("ListContents failed: %v", err)
+		}
+
+		if len(nodes) != 1 {
+			t.Errorf("expected 1 node, got %d", len(nodes))
+		}
+
+		if len(nodes) > 0 {
+			if nodes[0].Basename != "nested.txt" {
+				t.Errorf("expected nested.txt, got %s", nodes[0].Basename)
+			}
+		}
+	})
+
+	t.Run("non-existent directory", func(t *testing.T) {
+		_, err := a.ListContents("nonexistent")
+		if err == nil {
+			t.Error("expected error for non-existent directory")
+		}
+	})
+
+	t.Run("list file instead of directory", func(t *testing.T) {
+		// Try to list a file (which should fail on Readdir)
+		_, err := a.ListContents("file1.txt")
+		if err == nil {
+			t.Error("expected error when trying to list a file")
+		}
+	})
+}
+
+func TestPathTraversalPrevention(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a file outside the root
+	outsideFile := filepath.Join(filepath.Dir(tmpDir), "outside.txt")
+	os.WriteFile(outsideFile, []byte("should not be accessible"), 0644)
+	defer os.Remove(outsideFile)
+
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	t.Run("prevent .. traversal", func(t *testing.T) {
+		_, err := a.ListContents("../")
+		if err == nil {
+			t.Error("expected error when trying to traverse outside root")
+		}
+	})
+
+	t.Run("prevent ../../ traversal", func(t *testing.T) {
+		_, err := a.FileExists("../../outside.txt")
+		if err == nil {
+			t.Error("expected error when trying to access file outside root")
+		}
+	})
+
+	t.Run("prevent absolute path", func(t *testing.T) {
+		_, err := a.FileExists("/etc/passwd")
+		if err == nil {
+			t.Error("expected error when trying to use absolute path")
+		}
+	})
+}
+
+func TestMimeType(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create test files
+	os.WriteFile(filepath.Join(tmpDir, "test.txt"), []byte("plain text"), 0644)
+	os.WriteFile(filepath.Join(tmpDir, "test.html"), []byte("<html><body>test</body></html>"), 0644)
+	// Note: http.DetectContentType doesn't reliably detect JSON from content alone
+	// It needs special markers or will default to text/plain
+
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	tests := []struct {
+		file     string
+		expected string
+	}{
+		{"test.txt", "text/plain"},
+		{"test.html", "text/html"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.file, func(t *testing.T) {
+			mimeType, err := a.MimeType(tt.file)
+			if err != nil {
+				t.Fatalf("MimeType failed: %v", err)
+			}
+
+			// http.DetectContentType returns charset info, so we check prefix
+			if mimeType[:len(tt.expected)] != tt.expected {
+				t.Errorf("MimeType(%q) = %q, want prefix %q", tt.file, mimeType, tt.expected)
+			}
+		})
+	}
+
+	t.Run("non-existent file", func(t *testing.T) {
+		_, err := a.MimeType("nonexistent.txt")
+		if err == nil {
+			t.Error("expected error for non-existent file")
+		}
+	})
+}
+
+func TestFileSize(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	content := []byte("test content with known length")
+	os.WriteFile(filepath.Join(tmpDir, "test.txt"), content, 0644)
+
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	size, err := a.FileSize("test.txt")
+	if err != nil {
+		t.Fatalf("FileSize failed: %v", err)
+	}
+
+	if size != int64(len(content)) {
+		t.Errorf("FileSize = %d, want %d", size, len(content))
+	}
+
+	t.Run("non-existent file", func(t *testing.T) {
+		_, err := a.FileSize("nonexistent.txt")
+		if err == nil {
+			t.Error("expected error for non-existent file")
+		}
+	})
+}
+
+func TestReadStream(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	content := []byte("test file content")
+	os.WriteFile(filepath.Join(tmpDir, "test.txt"), content, 0644)
+
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	stream, err := a.ReadStream("test.txt")
+	if err != nil {
+		t.Fatalf("ReadStream failed: %v", err)
+	}
+	defer stream.Close()
+
+	readContent, err := io.ReadAll(stream)
+	if err != nil {
+		t.Fatalf("failed to read stream: %v", err)
+	}
+
+	if string(readContent) != string(content) {
+		t.Errorf("ReadStream content = %q, want %q", string(readContent), string(content))
+	}
+
+	t.Run("non-existent file", func(t *testing.T) {
+		_, err := a.ReadStream("nonexistent.txt")
+		if err == nil {
+			t.Error("expected error for non-existent file")
+		}
+	})
+}
+
+func TestFileExists(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	os.WriteFile(filepath.Join(tmpDir, "exists.txt"), []byte("content"), 0644)
+	os.Mkdir(filepath.Join(tmpDir, "dir"), 0755)
+
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	t.Run("existing file", func(t *testing.T) {
+		exists, err := a.FileExists("exists.txt")
+		if err != nil {
+			t.Fatalf("FileExists failed: %v", err)
+		}
+		if !exists {
+			t.Error("FileExists should return true for existing file")
+		}
+	})
+
+	t.Run("non-existent file", func(t *testing.T) {
+		exists, err := a.FileExists("nonexistent.txt")
+		if err != nil {
+			t.Fatalf("FileExists failed: %v", err)
+		}
+		if exists {
+			t.Error("FileExists should return false for non-existent file")
+		}
+	})
+
+	t.Run("directory", func(t *testing.T) {
+		exists, err := a.FileExists("dir")
+		if err != nil {
+			t.Fatalf("FileExists failed: %v", err)
+		}
+		if exists {
+			t.Error("FileExists should return false for directory")
+		}
+	})
+}
+
+func TestDirectoryExists(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	os.Mkdir(filepath.Join(tmpDir, "dir"), 0755)
+	os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("content"), 0644)
+
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	t.Run("existing directory", func(t *testing.T) {
+		exists, err := a.DirectoryExists("dir")
+		if err != nil {
+			t.Fatalf("DirectoryExists failed: %v", err)
+		}
+		if !exists {
+			t.Error("DirectoryExists should return true for existing directory")
+		}
+	})
+
+	t.Run("non-existent directory", func(t *testing.T) {
+		exists, err := a.DirectoryExists("nonexistent")
+		if err != nil {
+			t.Fatalf("DirectoryExists failed: %v", err)
+		}
+		if exists {
+			t.Error("DirectoryExists should return false for non-existent directory")
+		}
+	})
+
+	t.Run("file", func(t *testing.T) {
+		exists, err := a.DirectoryExists("file.txt")
+		if err != nil {
+			t.Fatalf("DirectoryExists failed: %v", err)
+		}
+		if exists {
+			t.Error("DirectoryExists should return false for file")
+		}
+	})
+}
+
+func TestEdgeCases(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	// Create a restricted directory to test permission errors
+	restrictedDir := filepath.Join(tmpDir, "restricted")
+	os.Mkdir(restrictedDir, 0755)
+
+	// Create a subdirectory inside it
+	os.Mkdir(filepath.Join(restrictedDir, "subdir"), 0755)
+
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	// On Unix systems, we can create a permission denied error by removing permissions
+	// Note: This test might not work on all systems (e.g., running as root)
+	t.Run("stat error handling", func(t *testing.T) {
+		// Change permissions to make the subdirectory inaccessible
+		// First, we need to remove execute permission on the parent
+		if err := os.Chmod(restrictedDir, 0000); err != nil {
+			t.Skip("cannot change directory permissions")
+		}
+		defer os.Chmod(restrictedDir, 0755) // Restore permissions
+
+		// Try to check if a subdirectory exists - this should give a permission error
+		_, err := a.DirectoryExists("restricted/subdir")
+		// We expect an error, but not IsNotExist
+		if err == nil {
+			t.Skip("expected permission error but got none (might be running as root)")
+		}
+		if os.IsNotExist(err) {
+			t.Error("expected permission error, got IsNotExist")
+		}
+	})
+}
+
+func TestImplementsInterfaces(t *testing.T) {
+	tmpDir := t.TempDir()
+	a, err := New(tmpDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer a.Close()
+
+	// Test that adapter implements the expected interfaces
+	var _ adapter.Lister = a
+	var _ adapter.Reader = a
+	var _ adapter.Existence = a
+}
