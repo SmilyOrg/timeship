@@ -61,9 +61,7 @@ func main() {
 
 	// Create HTTP server with generated handler
 	mux := http.NewServeMux()
-	handler := api.HandlerWithOptions(server, api.StdHTTPServerOptions{
-		BaseURL: "/api",
-	})
+	handler := api.HandlerWithOptions(server, api.StdHTTPServerOptions{})
 
 	// Apply CORS middleware
 	corsHandler := middleware.CORS()

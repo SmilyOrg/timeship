@@ -40,6 +40,10 @@ func (s *Server) getAdapter(adapter *Adapter) (adapter.Adapter, string, error) {
 		name = string(*adapter)
 	}
 
+	if name == "null" {
+		name = s.defaultAdapter
+	}
+
 	if name == "" {
 		return nil, "", fmt.Errorf("no adapters configured")
 	}
