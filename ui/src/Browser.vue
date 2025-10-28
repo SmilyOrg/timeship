@@ -1,8 +1,11 @@
 <template>
-    <div>
-        <vue-finder id="vf" request="/vuefinder"></vue-finder>
-    </div>
+  <div>
+    <vue-finder
+      id="vf"
+      request="http://localhost:8080/"
+    ></vue-finder>
+  </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 </script>
