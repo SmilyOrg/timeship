@@ -15,6 +15,12 @@ type FileNode struct {
 	MimeType     string
 }
 
+// Adapter is a marker interface for storage adapters
+// All methods are optional - adapters implement only the capabilities they support
+type Adapter interface {
+	// Adapter is a marker interface - no required methods
+}
+
 // Optional capability interfaces that adapters can implement
 
 // Lister lists directory contents (for /index endpoint)
