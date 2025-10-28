@@ -4,6 +4,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/smilyorg/timeship/api/internal/adapter"
@@ -43,35 +44,6 @@ func TestNew(t *testing.T) {
 			t.Error("expected error when opening file as root")
 		}
 	})
-}
-
-func TestResolvePath(t *testing.T) {
-	tmpDir := t.TempDir()
-	a, err := New(tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer a.Close()
-
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{"with prefix", "local://path/to/file", "path/to/file"},
-		{"without prefix", "path/to/file", "path/to/file"},
-		{"root path", "local://", "."},
-		{"empty", "", "."},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := a.resolvePath(tt.input)
-			if result != tt.expected {
-				t.Errorf("resolvePath(%q) = %q, want %q", tt.input, result, tt.expected)
-			}
-		})
-	}
 }
 
 func TestListContents(t *testing.T) {
@@ -175,6 +147,90 @@ func TestListContents(t *testing.T) {
 		_, err := a.ListContents("file1.txt")
 		if err == nil {
 			t.Error("expected error when trying to list a file")
+		}
+	})
+
+	t.Run("verify paths have local:// prefix when listing root", func(t *testing.T) {
+		nodes, err := a.ListContents("")
+		if err != nil {
+			t.Fatalf("ListContents failed: %v", err)
+		}
+
+		for _, node := range nodes {
+			if !strings.HasPrefix(node.Path, "local://") {
+				t.Errorf("path %q should have 'local://' prefix", node.Path)
+			}
+
+			// Verify the path format matches expected: local://basename
+			expectedPath := "local://" + node.Basename
+			if node.Path != expectedPath {
+				t.Errorf("path = %q, want %q", node.Path, expectedPath)
+			}
+		}
+	})
+
+	t.Run("verify paths have local:// prefix when listing subdirectory", func(t *testing.T) {
+		nodes, err := a.ListContents("subdir")
+		if err != nil {
+			t.Fatalf("ListContents failed: %v", err)
+		}
+
+		for _, node := range nodes {
+			if !strings.HasPrefix(node.Path, "local://") {
+				t.Errorf("path %q should have 'local://' prefix", node.Path)
+			}
+
+			// Verify the path format matches expected: local://subdir/basename
+			expectedPath := "local://subdir/" + node.Basename
+			if node.Path != expectedPath {
+				t.Errorf("path = %q, want %q", node.Path, expectedPath)
+			}
+		}
+	})
+
+	t.Run("verify paths have local:// prefix when input already has prefix", func(t *testing.T) {
+		nodes, err := a.ListContents("local://subdir")
+		if err != nil {
+			t.Fatalf("ListContents failed: %v", err)
+		}
+
+		for _, node := range nodes {
+			if !strings.HasPrefix(node.Path, "local://") {
+				t.Errorf("path %q should have 'local://' prefix", node.Path)
+			}
+
+			// Verify the path format matches expected: local://subdir/basename
+			expectedPath := "local://subdir/" + node.Basename
+			if node.Path != expectedPath {
+				t.Errorf("path = %q, want %q", node.Path, expectedPath)
+			}
+		}
+	})
+
+	t.Run("verify paths with nested directories", func(t *testing.T) {
+		// Create a deeper structure
+		nestedDir := filepath.Join(tmpDir, "public", "media")
+		os.MkdirAll(nestedDir, 0755)
+		os.WriteFile(filepath.Join(nestedDir, "image.jpg"), []byte("fake image"), 0644)
+
+		nodes, err := a.ListContents("local://public/media")
+		if err != nil {
+			t.Fatalf("ListContents failed: %v", err)
+		}
+
+		if len(nodes) != 1 {
+			t.Errorf("expected 1 node, got %d", len(nodes))
+		}
+
+		if len(nodes) > 0 {
+			expectedPath := "local://public/media/image.jpg"
+			if nodes[0].Path != expectedPath {
+				t.Errorf("path = %q, want %q", nodes[0].Path, expectedPath)
+			}
+
+			if nodes[0].Basename != "image.jpg" {
+				t.Errorf("basename = %q, want 'image.jpg'", nodes[0].Basename)
+			}
 		}
 	})
 }

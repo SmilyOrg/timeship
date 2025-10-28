@@ -28,10 +28,9 @@ func (s *Server) getIndex(w http.ResponseWriter, params GetParams) {
 		return
 	}
 
-	// Determine the path to list
-	path := adapterKey + "://"
+	path := ""
 	if params.Path != nil {
-		path = *params.Path
+		path = string(*params.Path)
 	}
 
 	// List the directory contents
@@ -86,10 +85,13 @@ func (s *Server) getIndex(w http.ResponseWriter, params GetParams) {
 		storages = append(storages, Adapter(name))
 	}
 
+	// Ensure dirname has the full path with adapter prefix
+	dirname := adapter.AddPrefix(path, adapterKey)
+
 	// Create response
 	response := DirectoryListingResponse{
 		Adapter:  Adapter(adapterKey),
-		Dirname:  DirectoryPath(path),
+		Dirname:  DirectoryPath(dirname),
 		Files:    apiFiles,
 		Storages: storages,
 	}

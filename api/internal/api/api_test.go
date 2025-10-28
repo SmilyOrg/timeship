@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/smilyorg/timeship/api/internal/adapter"
@@ -346,6 +347,129 @@ func TestGetIndex(t *testing.T) {
 		// Check files are sorted alphabetically after directories
 		if response.Files[2].Basename != "file1.txt" {
 			t.Errorf("expected first file to be 'file1.txt', got '%s'", response.Files[2].Basename)
+		}
+	})
+
+	t.Run("verify dirname format for empty path", func(t *testing.T) {
+		mockNodes := []adapter.FileNode{
+			{Path: "local://file.txt", Type: "file", Basename: "file.txt"},
+		}
+
+		mock := &mockAdapter{nodes: mockNodes}
+		adapters := map[string]adapter.Adapter{
+			"local": mock,
+		}
+
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
+
+		// Test with empty path (should default to root)
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index", nil)
+		w := httptest.NewRecorder()
+
+		server.Get(w, req, GetParams{Q: GetParamsQIndex})
+
+		var response DirectoryListingResponse
+		json.NewDecoder(w.Result().Body).Decode(&response)
+
+		if response.Dirname != "local://" {
+			t.Errorf("expected dirname 'local://' for empty path, got '%s'", response.Dirname)
+		}
+	})
+
+	t.Run("verify dirname format for path without prefix", func(t *testing.T) {
+		mockNodes := []adapter.FileNode{
+			{Path: "local://public/media/file.txt", Type: "file", Basename: "file.txt"},
+		}
+
+		mock := &mockAdapter{nodes: mockNodes}
+		adapters := map[string]adapter.Adapter{
+			"local": mock,
+		}
+
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
+
+		// Test with path without prefix
+		pathParam := "public/media"
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index&path=public/media", nil)
+		w := httptest.NewRecorder()
+
+		server.Get(w, req, GetParams{Q: GetParamsQIndex, Path: &pathParam})
+
+		var response DirectoryListingResponse
+		json.NewDecoder(w.Result().Body).Decode(&response)
+
+		if response.Dirname != "local://public/media" {
+			t.Errorf("expected dirname 'local://public/media', got '%s'", response.Dirname)
+		}
+	})
+
+	t.Run("verify dirname preserves existing prefix", func(t *testing.T) {
+		mockNodes := []adapter.FileNode{
+			{Path: "local://subdir/file.txt", Type: "file", Basename: "file.txt"},
+		}
+
+		mock := &mockAdapter{nodes: mockNodes}
+		adapters := map[string]adapter.Adapter{
+			"local": mock,
+		}
+
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
+
+		// Test with path that already has prefix
+		pathParam := "local://subdir"
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index&path=local://subdir", nil)
+		w := httptest.NewRecorder()
+
+		server.Get(w, req, GetParams{Q: GetParamsQIndex, Path: &pathParam})
+
+		var response DirectoryListingResponse
+		json.NewDecoder(w.Result().Body).Decode(&response)
+
+		if response.Dirname != "local://subdir" {
+			t.Errorf("expected dirname 'local://subdir', got '%s'", response.Dirname)
+		}
+	})
+
+	t.Run("verify all file paths have adapter prefix", func(t *testing.T) {
+		mockNodes := []adapter.FileNode{
+			{Path: "local://dir1", Type: "dir", Basename: "dir1"},
+			{Path: "local://file1.txt", Type: "file", Basename: "file1.txt"},
+			{Path: "local://public", Type: "dir", Basename: "public"},
+		}
+
+		mock := &mockAdapter{nodes: mockNodes}
+		adapters := map[string]adapter.Adapter{
+			"local": mock,
+		}
+
+		server, err := NewServer(adapters, "local")
+		if err != nil {
+			t.Fatalf("failed to create server: %v", err)
+		}
+
+		req := httptest.NewRequest(http.MethodGet, "/api/?q=index", nil)
+		w := httptest.NewRecorder()
+
+		server.Get(w, req, GetParams{Q: GetParamsQIndex})
+
+		var response DirectoryListingResponse
+		json.NewDecoder(w.Result().Body).Decode(&response)
+
+		// Verify all files have the local:// prefix
+		for _, file := range response.Files {
+			path := string(file.Path)
+			if !strings.HasPrefix(path, "local://") {
+				t.Errorf("file path '%s' should have 'local://' prefix", path)
+			}
 		}
 	})
 }

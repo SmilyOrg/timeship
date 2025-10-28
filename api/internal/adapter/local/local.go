@@ -10,6 +10,8 @@ import (
 	"github.com/smilyorg/timeship/api/internal/adapter"
 )
 
+const adapterName = "local"
+
 // Adapter implements adapter interfaces for local filesystem
 type Adapter struct {
 	root *os.Root
@@ -33,23 +35,10 @@ func (a *Adapter) Close() error {
 	return a.root.Close()
 }
 
-// resolvePath strips the "local://" prefix from a VueFinder path
-// and converts empty paths to "." for os.Root compatibility
-func (a *Adapter) resolvePath(path string) string {
-	// Remove "local://" prefix if present
-	path = strings.TrimPrefix(path, "local://")
-
-	// os.Root requires "." for the root directory, not ""
-	if path == "" {
-		return "."
-	}
-
-	return path
-}
-
 // ListContents implements adapter.Lister
 func (a *Adapter) ListContents(vfPath string) ([]adapter.FileNode, error) {
-	dirPath := a.resolvePath(vfPath)
+	// Convert VueFinder path to filesystem path
+	dirPath := adapter.StripPrefix(vfPath, adapterName)
 
 	// Open the directory within the root
 	f, err := a.root.Open(dirPath)
@@ -66,8 +55,11 @@ func (a *Adapter) ListContents(vfPath string) ([]adapter.FileNode, error) {
 
 	nodes := make([]adapter.FileNode, 0, len(entries))
 	for _, info := range entries {
+		// Build the full path with adapter prefix using the helper function
+		fullPath := adapter.JoinPath(vfPath, info.Name(), adapterName)
+
 		node := adapter.FileNode{
-			Path:     path.Join(vfPath, info.Name()),
+			Path:     fullPath,
 			Basename: info.Name(),
 		}
 
@@ -94,7 +86,7 @@ func (a *Adapter) ListContents(vfPath string) ([]adapter.FileNode, error) {
 
 // MimeType implements adapter.Reader
 func (a *Adapter) MimeType(vfPath string) (string, error) {
-	filePath := a.resolvePath(vfPath)
+	filePath := adapter.StripPrefix(vfPath, adapterName)
 
 	file, err := a.root.Open(filePath)
 	if err != nil {
@@ -111,7 +103,7 @@ func (a *Adapter) MimeType(vfPath string) (string, error) {
 
 // FileSize implements adapter.Reader
 func (a *Adapter) FileSize(vfPath string) (int64, error) {
-	filePath := a.resolvePath(vfPath)
+	filePath := adapter.StripPrefix(vfPath, adapterName)
 
 	info, err := a.root.Stat(filePath)
 	if err != nil {
@@ -123,13 +115,13 @@ func (a *Adapter) FileSize(vfPath string) (int64, error) {
 
 // ReadStream implements adapter.Reader
 func (a *Adapter) ReadStream(vfPath string) (io.ReadCloser, error) {
-	filePath := a.resolvePath(vfPath)
+	filePath := adapter.StripPrefix(vfPath, adapterName)
 	return a.root.Open(filePath)
 }
 
 // FileExists implements adapter.Existence
 func (a *Adapter) FileExists(vfPath string) (bool, error) {
-	filePath := a.resolvePath(vfPath)
+	filePath := adapter.StripPrefix(vfPath, adapterName)
 
 	info, err := a.root.Stat(filePath)
 	if os.IsNotExist(err) {
@@ -144,7 +136,7 @@ func (a *Adapter) FileExists(vfPath string) (bool, error) {
 
 // DirectoryExists implements adapter.Existence
 func (a *Adapter) DirectoryExists(vfPath string) (bool, error) {
-	dirPath := a.resolvePath(vfPath)
+	dirPath := adapter.StripPrefix(vfPath, adapterName)
 
 	info, err := a.root.Stat(dirPath)
 	if os.IsNotExist(err) {
