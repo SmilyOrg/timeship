@@ -78,6 +78,8 @@ func (s *Server) Get(w http.ResponseWriter, r *http.Request, params GetParams) {
 	switch params.Q {
 	case GetParamsQIndex:
 		s.getIndex(w, params)
+	case GetParamsQPreview:
+		s.getPreview(w, params)
 	default:
 		s.sendError(w, "Not implemented", http.StatusNotImplemented)
 	}
