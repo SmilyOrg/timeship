@@ -179,6 +179,9 @@ type FileNode struct {
 	// Extension File extension without the dot (extracted via pathinfo)
 	Extension *Extension `json:"extension,omitempty"`
 
+	// FileSize File size in bytes (provided by filesystem StorageAttributes)
+	FileSize *FileSize `json:"file_size,omitempty"`
+
 	// LastModified Unix timestamp
 	LastModified *Timestamp `json:"last_modified,omitempty"`
 
@@ -187,9 +190,6 @@ type FileNode struct {
 
 	// Path Full path with adapter prefix
 	Path Path `json:"path"`
-
-	// Size File size in bytes (provided by filesystem StorageAttributes)
-	Size *FileSize `json:"size,omitempty"`
 
 	// Storage Storage adapter key
 	Storage Adapter `json:"storage"`

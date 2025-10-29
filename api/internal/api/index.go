@@ -72,7 +72,7 @@ func (s *Server) getIndex(w http.ResponseWriter, params GetParams) {
 			}
 			if node.Size > 0 {
 				size := FileSize(node.Size)
-				apiFiles[i].Size = &size
+				apiFiles[i].FileSize = &size
 			}
 			if node.MimeType != "" {
 				mime := MimeType(node.MimeType)

@@ -103,7 +103,7 @@ func TestGetIndex(t *testing.T) {
 		if file.Extension == nil || *file.Extension != "txt" {
 			t.Error("expected file to have extension 'txt'")
 		}
-		if file.Size == nil || *file.Size != 1024 {
+		if file.FileSize == nil || *file.FileSize != 1024 {
 			t.Error("expected file size 1024")
 		}
 		if file.LastModified == nil || *file.LastModified != 1234567890 {
