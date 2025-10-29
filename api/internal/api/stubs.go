@@ -1,32 +1,8 @@
 package api
 
 import (
-	"encoding/json"
 	"net/http"
-	"sort"
 )
-
-// GetStorages lists all available storage backends
-func (s *Server) GetStorages(w http.ResponseWriter, r *http.Request) {
-	// Build list of available storages
-	storages := make([]string, 0, len(s.storages))
-	for name := range s.storages {
-		storages = append(storages, name)
-	}
-
-	// Sort alphabetically
-	sort.Strings(storages)
-
-	response := struct {
-		Storages []string `json:"storages"`
-	}{
-		Storages: storages,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
-}
 
 // Archive operations - not implemented yet
 
@@ -55,20 +31,6 @@ func (s *Server) PostStoragesStorageMoves(w http.ResponseWriter, r *http.Request
 // Node CRUD operations - only GET is implemented
 
 // Pathless node endpoints (for storage root)
-
-func (s *Server) GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageNodesParams) {
-	// Delegate to the path-based handler with empty path
-	pathParams := GetStoragesStorageNodesPathParams{
-		Type:     params.Type,
-		Filter:   params.Filter,
-		Search:   params.Search,
-		Children: params.Children,
-		Download: params.Download,
-		Sort:     (*GetStoragesStorageNodesPathParamsSort)(params.Sort),
-		Order:    (*GetStoragesStorageNodesPathParamsOrder)(params.Order),
-	}
-	s.GetStoragesStorageNodesPath(w, r, storage, "", pathParams)
-}
 
 func (s *Server) PostStoragesStorageNodes(w http.ResponseWriter, r *http.Request, storage Storage) {
 	// Delegate to the path-based handler with empty path

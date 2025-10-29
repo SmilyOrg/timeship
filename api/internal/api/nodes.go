@@ -12,6 +12,20 @@ import (
 	"github.com/smilyorg/timeship/api/internal/adapter"
 )
 
+func (s *Server) GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageNodesParams) {
+	// Delegate to the path-based handler with empty path
+	pathParams := GetStoragesStorageNodesPathParams{
+		Type:     params.Type,
+		Filter:   params.Filter,
+		Search:   params.Search,
+		Children: params.Children,
+		Download: params.Download,
+		Sort:     (*GetStoragesStorageNodesPathParamsSort)(params.Sort),
+		Order:    (*GetStoragesStorageNodesPathParamsOrder)(params.Order),
+	}
+	s.GetStoragesStorageNodesPath(w, r, storage, "", pathParams)
+}
+
 // GetStoragesStorageNodesPath handles getting node information or content
 // This combines both directory listing and file retrieval functionality
 func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request, storage Storage, path NodePath, params GetStoragesStorageNodesPathParams) {
