@@ -1,135 +1,47 @@
 openapi: 3.1.0
 info:
-  title: VueFinder API
+  title: VueFinder API v2 (RESTful Edition)
   description: |
-    File management API for VueFinder using query-based routing.
+    RESTful file management API using unified node concept.
     
-    All operations are performed through a single endpoint with the operation specified 
-    via the 'q' query parameter (e.g., ?q=index, ?q=upload, ?q=delete).
-  version: 1.0.0
+    All filesystem objects (files and directories) are treated as "nodes" with a type field.
+    This mirrors the Unix/Linux filesystem philosophy where everything is an inode.
+    
+    Key concepts:
+    - Nodes are identified by their path (compound key with slashes)
+    - Node type (file/dir) is determined by the response, not the URL
+    - Paths are hierarchical and natural - empty path = storage root
+    - Operations are RESTful resources (moves, copies, archives)
+  version: 2.0.0
+  
 servers:
-  - url: /api
-    description: API server
+  - url: /api/
+    description: API v2 server
 
 tags:
-  - name: Directory Operations
-    description: Operations for browsing and managing directories
-  - name: File Operations
-    description: Operations for creating, modifying, and deleting files and folders
-  - name: File Content
-    description: Operations for reading and writing file content
-  - name: Archive Operations
-    description: Operations for creating and extracting ZIP archives
+  - name: Storages
+    description: Storage backend discovery and management
+  - name: Nodes
+    description: Unified file and directory operations
+  - name: Moves
+    description: Move operations on nodes
+  - name: Copies
+    description: Copy operations on nodes
+  - name: Archives
+    description: Archive creation and extraction
 
 components:
   schemas:
-    Adapter:
-      type: string
-      description: Storage adapter key
-      example: 'local'
-    
-    Path:
-      type: string
-      description: Full path with adapter prefix
-      example: 'local://documents/report.pdf'
-    
-    DirectoryPath:
-      type: string
-      description: Directory path with adapter prefix
-      example: 'local://documents'
-      default: 'adapter://'
-    
-    Basename:
-      type: string
-      description: Base name of the file or directory (extracted via basename() function)
-      example: 'report.pdf'
-    
-    Name:
-      type: string
-      description: Name that must not contain \/?%*:|"<> characters
-      pattern: '^[^\\/?%*:|"<>]+$'
-      example: 'new-document.txt'
-    
-    Extension:
-      type: string
-      description: File extension without the dot (extracted via pathinfo)
-      example: 'pdf'
-    
-    MimeType:
-      type: string
-      description: MIME type of the file (detected by filesystem)
-      example: 'application/pdf'
-    
-    Url:
-      type: string
-      format: uri
-      description: Public URL to access the file
-      example: 'https://cdn.example.com/documents/report.pdf'
-    
-    FileSize:
-      type: integer
-      format: int64
-      minimum: 0
-      description: File size in bytes (provided by filesystem StorageAttributes)
-      example: 1048576
-    
-    Timestamp:
-      type: integer
-      format: int64
-      description: Unix timestamp
-      example: 1698364800
-    
-    FileType:
+    NodeType:
       type: string
       enum: [file, dir]
-      description: Type of the node - 'file' for files, 'dir' for directories
-    
-    AdapterList:
-      type: array
-      items:
-        $ref: '#/components/schemas/Adapter'
-      description: List of all available storage adapter keys configured in the system
-      example: ['local', 's3', 'ftp']
-    
-    FileList:
-      type: array
-      items:
-        $ref: '#/components/schemas/FileNode'
-      description: Array of files and directories (directories listed first, then files)
-    
-    FolderList:
-      type: array
-      items:
-        $ref: '#/components/schemas/Folder'
-      description: Array of folders
-    
-    FileItemList:
-      type: array
-      description: Array of items for batch operations
-      minItems: 1
-      items:
-        $ref: '#/components/schemas/FileItem'
-    
-    FileContent:
-      type: string
-      description: Text content of a file
-      example: 'Hello, world!'
-    
-    ArchiveName:
-      type: string
-      description: Archive name without extension (pathinfo PATHINFO_FILENAME extracts this, .zip added automatically)
-      pattern: '^[^\\/?%*:|"<>]+$'
-      example: 'backup-2024'
-    
-    SearchFilter:
-      type: string
-      description: Search filter/pattern (case-insensitive, uses fnmatch with wildcards)
-      minLength: 1
-      example: 'report'
-    
-    FileNode:
+      description: Type of the filesystem node
+      
+    Node:
       type: object
-      description: Represents a file or directory in the file system
+      description: |
+        Unified representation of any filesystem object (file or directory).
+        Inspired by Unix inode concept where everything is a node with attributes.
       required:
         - path
         - type
@@ -137,124 +49,148 @@ components:
         - storage
       properties:
         path:
-          $ref: '#/components/schemas/Path'
+          type: string
+          description: Full path with adapter prefix
+          example: 'local://documents/reports/2024/report.pdf'
         type:
-          $ref: '#/components/schemas/FileType'
+          $ref: '#/components/schemas/NodeType'
         basename:
-          $ref: '#/components/schemas/Basename'
-        extension:
-          $ref: '#/components/schemas/Extension'
+          type: string
+          description: Base name of the node
+          example: 'report.pdf'
         storage:
-          $ref: '#/components/schemas/Adapter'
+          type: string
+          description: Storage adapter identifier
+          example: 'local'
+        extension:
+          type: string
+          description: File extension (only for files)
+          example: 'pdf'
         mime_type:
-          $ref: '#/components/schemas/MimeType'
-        url:
-          $ref: '#/components/schemas/Url'
+          type: string
+          description: MIME type (only for files)
+          example: 'application/pdf'
         file_size:
-          $ref: '#/components/schemas/FileSize'
+          type: integer
+          format: int64
+          description: Size in bytes (only for files)
+          example: 1048576
         last_modified:
-          $ref: '#/components/schemas/Timestamp'
+          type: integer
+          format: int64
+          description: Unix timestamp of last modification
+          example: 1698364800
         dir:
-          $ref: '#/components/schemas/DirectoryPath'
+          type: string
+          description: Parent directory path with adapter prefix
+          example: 'local://documents/reports/2024'
+        permissions:
+          type: object
+          description: Node permissions
+          properties:
+            readable:
+              type: boolean
+            writable:
+              type: boolean
+            executable:
+              type: boolean
+        children:
+          type: array
+          description: Child nodes (only present for directories when listing)
+          items:
+            $ref: '#/components/schemas/Node'
             
-    FileItem:
+    NodeList:
       type: object
-      description: Reference to a file or directory for batch operations (move, delete, archive)
-      required:
-        - path
-        - type
-      properties:
-        path:
-          $ref: '#/components/schemas/Path'
-        type:
-          $ref: '#/components/schemas/FileType'
-    
-    Folder:
-      type: object
-      description: Subfolder information for tree navigation
+      description: Response containing list of nodes
       required:
         - adapter
-        - path
-        - basename
-      properties:
-        adapter:
-          $ref: '#/components/schemas/Adapter'
-        path:
-          $ref: '#/components/schemas/Path'
-        basename:
-          $ref: '#/components/schemas/Basename'
-    
-    DirectoryListingResponse:
-      type: object
-      description: |
-        Standard response containing directory contents and metadata.
-        
-        The 'adapter' field indicates which adapter was used for this response. When clients 
-        make their first request without specifying an adapter parameter (or with adapter=null), 
-        this field will contain the first configured adapter, allowing clients to discover and 
-        use it for subsequent requests. The 'storages' array contains all available adapters.
-      required:
-        - adapter
+        - storage
         - storages
         - dirname
         - files
       properties:
         adapter:
-          $ref: '#/components/schemas/Adapter'
+          type: string
+          description: Current storage adapter
+          example: 'local'
+        storage:
+          type: string
+          description: Current storage adapter
+          example: 'local'
         storages:
-          $ref: '#/components/schemas/AdapterList'
+          type: array
+          description: Available storage adapters
+          items:
+            type: string
+          example: ['local', 's3', 'minio']
         dirname:
-          $ref: '#/components/schemas/DirectoryPath'
+          type: string
+          description: Current directory path with adapter prefix
+          example: 'local://documents/reports'
+        path:
+          type: string
+          description: Current directory path without adapter prefix
+          example: 'documents/reports'
         files:
-          $ref: '#/components/schemas/FileList'
+          type: array
+          description: Child nodes
+          items:
+            $ref: '#/components/schemas/Node'
     
-    SubfoldersResponse:
-      type: object
-      required:
-        - folders
-      properties:
-        folders:
-          $ref: '#/components/schemas/FolderList'
-    
-    CreateRequest:
-      type: object
-      description: Request to create a new file or folder (name validated against \\/?%*:|"<> characters)
-      required:
-        - name
-      properties:
-        name:
-          $ref: '#/components/schemas/Name'
-    
-    RenameRequest:
+    CreateNodeRequest:
       type: object
       required:
         - name
-        - item
+        - type
       properties:
         name:
-          $ref: '#/components/schemas/Name'
-        item:
-          $ref: '#/components/schemas/Path'
-    
-    MoveRequest:
+          type: string
+          pattern: '^[^\\/?%*:|"<>]+$'
+          description: Name of the node to create
+          example: 'new-folder'
+        type:
+          $ref: '#/components/schemas/NodeType'
+        content:
+          type: string
+          description: Initial content (only for files)
+          
+    UpdateNodeRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          pattern: '^[^\\/?%*:|"<>]+$'
+          description: New name for the node (rename)
+        content:
+          type: string
+          description: Updated content (only for files)
+          
+    BatchOperationRequest:
       type: object
       required:
-        - item
+        - operation
         - items
       properties:
-        item:
-          $ref: '#/components/schemas/DirectoryPath'
+        operation:
+          type: string
+          enum: [move, copy, delete]
+        destination:
+          type: string
+          description: Destination path (required for move/copy)
         items:
-          $ref: '#/components/schemas/FileItemList'
-    
-    DeleteRequest:
-      type: object
-      required:
-        - items
-      properties:
-        items:
-          $ref: '#/components/schemas/FileItemList'
-    
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - path
+            properties:
+              path:
+                type: string
+              type:
+                $ref: '#/components/schemas/NodeType'
+                
     ArchiveRequest:
       type: object
       required:
@@ -262,38 +198,29 @@ components:
         - items
       properties:
         name:
-          $ref: '#/components/schemas/ArchiveName'
+          type: string
+          pattern: '^[^\\/?%*:|"<>]+$'
+          description: Archive name (without .zip extension)
         items:
-          $ref: '#/components/schemas/FileItemList'
-    
-    UnarchiveRequest:
+          type: array
+          minItems: 1
+          items:
+            type: object
+            required:
+              - path
+            properties:
+              path:
+                type: string
+                
+    ExtractRequest:
       type: object
-      required:
-        - item
       properties:
-        item:
-          $ref: '#/components/schemas/Path'
-    
-    SaveRequest:
-      type: object
-      required:
-        - content
-      properties:
-        content:
-          $ref: '#/components/schemas/FileContent'
-    
-    UploadSuccessResponse:
-      type: array
-      items:
-        type: string
-        enum: [ok]
-      minItems: 1
-      maxItems: 1
-      example: ["ok"]
-    
+        destination:
+          type: string
+          description: Destination path (defaults to archive location)
+          
     ErrorResponse:
       type: object
-      description: Standard error response returned with 400 status code
       required:
         - status
         - message
@@ -305,373 +232,812 @@ components:
           example: false
         message:
           type: string
-          description: Human-readable error message describing what went wrong
-          example: 'Invalid folder name.'
+          description: Human-readable error message
+          example: 'Invalid node name.'
 
+  parameters:
+    storage:
+      name: storage
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Storage backend identifier
+      example: local
+      
+    nodePath:
+      name: path...
+      in: path
+      required: true
+      schema:
+        type: string
+      style: simple
+      allowReserved: true
+      description: |
+        Node path (can contain slashes). Path is relative to storage root.
+        Use empty string or single space for storage root.
+        
+        Note: OpenAPI path parameters cannot be truly optional, but empty string 
+        is supported by the router. The spec uses '*' suffix to match everything 
+        including empty paths.
+      examples:
+        root:
+          value: " "
+          summary: Storage root (use space in spec, empty in actual URLs)
+        file:
+          value: "documents/report.pdf"
+          summary: File path
+        directory:
+          value: "documents/reports/2024"
+          summary: Directory path
+          
+    getNodesType:
+      name: type
+      in: query
+      schema:
+        $ref: '#/components/schemas/NodeType'
+      description: Filter children by type (for directories)
+      
+    getNodesFilter:
+      name: filter
+      in: query
+      schema:
+        type: string
+      description: Filename pattern (glob-style, e.g., *.pdf)
+      example: '*.pdf'
+      
+    getNodesSearch:
+      name: search
+      in: query
+      schema:
+        type: string
+      description: Search query - searches recursively from this path
+      example: 'report'
+      
+    getNodesChildren:
+      name: children
+      in: query
+      schema:
+        type: boolean
+        default: true
+      description: Include children in response (for directories)
+      
+    getNodesDownload:
+      name: download
+      in: query
+      schema:
+        type: boolean
+        default: false
+      description: Set Content-Disposition to attachment (for files)
+      
+    getNodesSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum: [name, size, modified_at, type]
+      description: Sort field for children
+      
+    getNodesOrder:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: asc
+      description: Sort order
+      
+    deleteNodesRecursive:
+      name: recursive
+      in: query
+      schema:
+        type: boolean
+        default: true
+      description: Delete recursively (for directories)
+      
   responses:
-    DirectoryListing:
-      description: Directory contents with files and folders
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/DirectoryListingResponse'
-    
-    Subfolders:
-      description: List of folders
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/SubfoldersResponse'
-    
-    UploadSuccess:
-      description: Upload successful
-      content:
-        application/json:
-          schema:
-            $ref: '#/components/schemas/UploadSuccessResponse'
-    
-    BinaryFile:
-      description: File content streamed as binary data
+    nodeSuccess200:
+      description: Node information or content
       headers:
         Content-Type:
           schema:
-            $ref: '#/components/schemas/MimeType'
-          description: MIME type of the file (detected by filesystem or 'application/octet-stream')
-        Content-Length:
-          schema:
-            $ref: '#/components/schemas/FileSize'
-          description: Size of file in bytes
-        Accept-Ranges:
-          schema:
             type: string
-            enum: [bytes]
-          description: Indicates server supports range requests
-      content:
-        application/octet-stream:
-          schema:
-            type: string
-            format: binary
-    
-    PartialContent:
-      description: Partial content for HTTP range requests (status 206)
-      headers:
-        Content-Type:
-          schema:
-            $ref: '#/components/schemas/MimeType'
-          description: MIME type of the file
-        Content-Length:
-          schema:
-            $ref: '#/components/schemas/FileSize'
-          description: Size of the partial content being sent
-      content:
-        application/octet-stream:
-          schema:
-            type: string
-            format: binary
-    
-    FileDownload:
-      description: File download with attachment disposition
-      headers:
+          description: Response content type
         Content-Disposition:
           schema:
             type: string
-          description: Attachment header with filename (uses MD5 hash as fallback for special characters)
-          example: 'attachment; filename="report.pdf"'
+          description: Disposition header (for file downloads)
       content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: '#/components/schemas/Node'
+              - $ref: '#/components/schemas/NodeList'
+          examples:
+            directory:
+              summary: Directory listing
+              value:
+                adapter: local
+                storage: local
+                storages: [local, s3]
+                dirname: local://documents
+                path: documents
+                files:
+                  - path: local://documents/reports
+                    type: dir
+                    basename: reports
+                    storage: local
+                    last_modified: 1698364800
+                    dir: local://documents
+                  - path: local://documents/readme.txt
+                    type: file
+                    basename: readme.txt
+                    storage: local
+                    extension: txt
+                    mime_type: text/plain
+                    file_size: 1024
+                    last_modified: 1698364800
+                    dir: local://documents
+            file:
+              summary: File metadata
+              value:
+                path: local://documents/report.pdf
+                type: file
+                basename: report.pdf
+                storage: local
+                extension: pdf
+                mime_type: application/pdf
+                file_size: 1048576
+                last_modified: 1698364800
+                dir: local://documents
+            search:
+              summary: Search results
+              value:
+                adapter: local
+                storage: local
+                storages: [local, s3]
+                dirname: local://documents
+                path: documents
+                files:
+                  - path: local://documents/2024/report.pdf
+                    type: file
+                    basename: report.pdf
+                    storage: local
+                  - path: local://documents/reports/annual-report.pdf
+                    type: file
+                    basename: annual-report.pdf
+                    storage: local
         application/octet-stream:
           schema:
             type: string
             format: binary
-    
-    Error:
-      description: Error response with status false and error message
+        text/plain:
+          schema:
+            type: string
+            
+    nodeCreated201:
+      description: Node created successfully
+      headers:
+        Location:
+          schema:
+            type: string
+          description: URL to the created node
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Node'
+            
+    nodeNotFound404:
+      description: Node not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            
+    badRequest400:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+            
+    nodeConflict409:
+      description: Node already exists
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
 
-  parameters:
-    operation:
-      name: q
-      in: query
-      required: true
-      description: |
-        Operation to perform. This parameter routes the request to the appropriate handler method.
-        
-        Valid operations and their HTTP methods:
-        - GET: index, subfolders, download, preview, search
-        - POST: newfolder, newfile, rename, move, delete, upload, archive, unarchive, save
-      schema:
-        type: string
-        enum:
-          - index
-          - subfolders
-          - download
-          - preview
-          - search
-          - newfolder
-          - newfile
-          - rename
-          - move
-          - delete
-          - upload
-          - archive
-          - unarchive
-          - save
-      example: index
-    
-    adapter:
-      name: adapter
-      in: query
-      description: |
-        Storage adapter key to use. Optional parameter that allows clients to specify which storage adapter to use.
-        
-        Behavior:
-        - If omitted or null: Server returns the first configured adapter in the response, allowing clients to discover available adapters
-        - If provided but invalid: Server returns the first configured adapter (fallback behavior)
-        - If provided and valid: Server uses the specified adapter
-        
-        This allows clients to start with adapter=null, receive the adapter list in the response, 
-        and then use a specific adapter in subsequent requests.
-      required: false
-      schema:
-        $ref: '#/components/schemas/Adapter'
-
 paths:
-  /:
-    options:
-      summary: CORS preflight
-      description: Handle CORS preflight requests for all operations
-      responses:
-        '200':
-          description: CORS headers set
-          headers:
-            Access-Control-Allow-Origin:
-              schema:
-                type: string
-                example: "*"
-            Access-Control-Allow-Headers:
-              schema:
-                type: string
-                example: "*"
-    
+  /storages:
     get:
-      summary: Execute read operations
-      description: |
-        Main endpoint for all GET operations (read-only). The specific operation is determined 
-        by the 'q' query parameter.
-        
-        Supported operations:
-        - **index**: List directory contents
-        - **subfolders**: List immediate subdirectories
-        - **search**: Search files recursively by name
-        - **preview**: Stream file content for preview
-        - **download**: Download file with attachment disposition
-      parameters:
-        - $ref: '#/components/parameters/operation'
-        - $ref: '#/components/parameters/adapter'
-        - name: path
-          in: query
-          required: false
-          description: |
-            Directory or file path with adapter prefix. Required for some operations.
-            - For index/subfolders/search: Directory path (defaults to 'adapter://')
-            - For preview/download: Full file path (required)
-          schema:
-            type: string
-          examples:
-            directory:
-              value: 'local://documents'
-              summary: Directory path
-            file:
-              value: 'local://documents/report.pdf'
-              summary: File path
-        - name: filter
-          in: query
-          required: false
-          description: Search filter (required when q=search). Case-insensitive, uses fnmatch with wildcards.
-          schema:
-            $ref: '#/components/schemas/SearchFilter'
+      summary: List available storage backends
+      tags: [Storages]
       responses:
         '200':
-          description: Successful operation
+          description: List of available storages
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/DirectoryListingResponse'
-                  - $ref: '#/components/schemas/SubfoldersResponse'
-              examples:
-                indexResponse:
-                  summary: Response for q=index
-                  value:
-                    adapter: local
-                    storages: [local, s3]
-                    dirname: local://documents
-                    files:
-                      - path: local://documents/report.pdf
-                        type: file
-                        basename: report.pdf
-                        extension: pdf
-                        storage: local
-                        mime_type: application/pdf
-                subfoldersResponse:
-                  summary: Response for q=subfolders
-                  value:
-                    folders:
-                      - adapter: local
-                        path: local://documents/archive
-                        basename: archive
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-                description: Binary file content (for q=preview or q=download)
-        '206':
-          description: Partial content (for HTTP range requests on preview/download)
-          headers:
-            Content-Type:
-              schema:
-                $ref: '#/components/schemas/MimeType'
-            Content-Length:
-              schema:
-                $ref: '#/components/schemas/FileSize'
-          content:
-            application/octet-stream:
-              schema:
-                type: string
-                format: binary
-        '400':
-          $ref: '#/components/responses/Error'
-    
-    post:
-      summary: Execute write operations
+                type: object
+                properties:
+                  storages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                        name:
+                          type: string
+                        type:
+                          type: string
+                          enum: [local, s3, ftp, webdav]
+                        writable:
+                          type: boolean
+              example:
+                storages:
+                  - id: local
+                    name: Local Storage
+                    type: local
+                    writable: true
+                  - id: s3
+                    name: AWS S3
+                    type: s3
+                    writable: true
+
+  /storages/{storage}/nodes:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      
+    get:
+      summary: Get storage root information or content
       description: |
-        Main endpoint for all POST operations (write/modify). The specific operation is 
-        determined by the 'q' query parameter.
+        Get information about storage root, or its content if accessible as a file.
+        This is a convenience endpoint for accessing the root without a path parameter.
         
-        Supported operations:
-        - **newfolder**: Create a new directory
-        - **newfile**: Create a new empty file
-        - **upload**: Upload file content
-        - **save**: Save/update file content
-        - **rename**: Rename a file or folder
-        - **move**: Move files/folders to new location
-        - **delete**: Delete files/folders
-        - **archive**: Create ZIP archive from files/folders
-        - **unarchive**: Extract ZIP archive
+        For storage roots: Returns root metadata and lists children.
         
-        Note: These operations are blocked if the adapter is read-only.
+        Content negotiation:
+        - Accept: application/json → Returns node metadata
+        - Accept: application/octet-stream → Returns file content (binary)
+        - Accept: text/* → Returns file content (text)
+      tags: [Nodes]
       parameters:
-        - $ref: '#/components/parameters/operation'
-        - $ref: '#/components/parameters/adapter'
-        - name: path
-          in: query
-          required: true
-          description: |
-            Directory or file path with adapter prefix.
-            - For newfolder/newfile/upload/move/delete/archive/unarchive: Directory path where operation occurs
-            - For save/rename: Full path to the file
-          schema:
-            type: string
-          examples:
-            directory:
-              value: 'local://documents'
-            file:
-              value: 'local://documents/notes.txt'
+        - $ref: '#/components/parameters/getNodesType'
+        - $ref: '#/components/parameters/getNodesFilter'
+        - $ref: '#/components/parameters/getNodesSearch'
+        - $ref: '#/components/parameters/getNodesChildren'
+        - $ref: '#/components/parameters/getNodesDownload'
+        - $ref: '#/components/parameters/getNodesSort'
+        - $ref: '#/components/parameters/getNodesOrder'
+      responses:
+        '200':
+          $ref: '#/components/responses/nodeSuccess200'
+        '404':
+          $ref: '#/components/responses/nodeNotFound404'
+                
+    post:
+      summary: Create a new child node at storage root
+      description: |
+        Create a new file or directory at the storage root.
+      tags: [Nodes]
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              oneOf:
-                - $ref: '#/components/schemas/CreateRequest'
-                - $ref: '#/components/schemas/RenameRequest'
-                - $ref: '#/components/schemas/MoveRequest'
-                - $ref: '#/components/schemas/DeleteRequest'
-                - $ref: '#/components/schemas/ArchiveRequest'
-                - $ref: '#/components/schemas/UnarchiveRequest'
-                - $ref: '#/components/schemas/SaveRequest'
+              $ref: '#/components/schemas/CreateNodeRequest'
             examples:
-              newfolder:
-                summary: Create folder (q=newfolder)
+              directory:
+                summary: Create directory
                 value:
                   name: "2024-reports"
-              newfile:
-                summary: Create file (q=newfile)
+                  type: dir
+              file:
+                summary: Create file with content
                 value:
                   name: "notes.txt"
-              rename:
-                summary: Rename (q=rename)
-                value:
-                  item: "local://documents/old-name.txt"
-                  name: "new-name.txt"
-              move:
-                summary: Move files (q=move)
-                value:
-                  item: "local://archive"
-                  items:
-                    - path: "local://documents/file1.txt"
-                      type: file
-              delete:
-                summary: Delete files (q=delete)
-                value:
-                  items:
-                    - path: "local://temp/old-file.txt"
-                      type: file
-              archive:
-                summary: Create archive (q=archive)
-                value:
-                  name: "backup-2024"
-                  items:
-                    - path: "local://documents/file1.pdf"
-                      type: file
-              unarchive:
-                summary: Extract archive (q=unarchive)
-                value:
-                  item: "local://downloads/backup.zip"
-              save:
-                summary: Save file content (q=save)
-                value:
-                  content: "Updated file content..."
+                  type: file
+                  content: "Hello, world!"
           multipart/form-data:
             schema:
               type: object
               required:
                 - file
-                - name
               properties:
                 file:
                   type: string
                   format: binary
-                  description: File data to upload
+                  description: File to upload
                 name:
                   type: string
-                  description: Target filename
+                  description: Optional custom filename (defaults to uploaded filename)
+      responses:
+        '201':
+          $ref: '#/components/responses/nodeCreated201'
+        '400':
+          $ref: '#/components/responses/badRequest400'
+        '409':
+          $ref: '#/components/responses/nodeConflict409'
+
+  /storages/{storage}/nodes/{path...}:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      - $ref: '#/components/parameters/nodePath'
+      
+    get:
+      summary: Get node information or content
+      description: |
+        Get information about a node, or its content if it's a file.
+        Works for both storage root (empty path) and nested paths.
+        
+        For directories: Returns node metadata and lists children.
+        For files: Returns file content (use Accept header for format).
+        
+        Content negotiation:
+        - Accept: application/json → Returns node metadata
+        - Accept: application/octet-stream → Returns file content (binary)
+        - Accept: text/* → Returns file content (text)
+      tags: [Nodes]
+      parameters:
+        - $ref: '#/components/parameters/getNodesType'
+        - $ref: '#/components/parameters/getNodesFilter'
+        - $ref: '#/components/parameters/getNodesSearch'
+        - $ref: '#/components/parameters/getNodesChildren'
+        - $ref: '#/components/parameters/getNodesDownload'
+        - $ref: '#/components/parameters/getNodesSort'
+        - $ref: '#/components/parameters/getNodesOrder'
       responses:
         '200':
-          description: Successful operation
+          $ref: '#/components/responses/nodeSuccess200'
+        '404':
+          $ref: '#/components/responses/nodeNotFound404'
+                
+    post:
+      summary: Create a new child node
+      description: |
+        Create a new file or directory as a child of this path.
+        For storage root, creates at root level.
+      tags: [Nodes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateNodeRequest'
+            examples:
+              directory:
+                summary: Create directory
+                value:
+                  name: "2024-reports"
+                  type: dir
+              file:
+                summary: Create file with content
+                value:
+                  name: "notes.txt"
+                  type: file
+                  content: "Hello, world!"
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File to upload
+                name:
+                  type: string
+                  description: Optional custom filename (defaults to uploaded filename)
+      responses:
+        '201':
+          $ref: '#/components/responses/nodeCreated201'
+        '400':
+          $ref: '#/components/responses/badRequest400'
+        '409':
+          $ref: '#/components/responses/nodeConflict409'
+                
+    patch:
+      summary: Update node metadata or content
+      description: |
+        Update node name (rename) or content (for files).
+        Partial updates are supported.
+      tags: [Nodes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateNodeRequest'
+            examples:
+              rename:
+                summary: Rename node
+                value:
+                  name: "new-name.pdf"
+              updateContent:
+                summary: Update file content
+                value:
+                  content: "Updated content..."
+      responses:
+        '200':
+          description: Node updated
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: '#/components/schemas/DirectoryListingResponse'
-                  - $ref: '#/components/schemas/UploadSuccessResponse'
-              examples:
-                directoryListing:
-                  summary: Most operations return updated directory listing
-                  value:
-                    adapter: local
-                    storages: [local]
-                    dirname: local://documents
-                    files: []
-                uploadSuccess:
-                  summary: Upload returns simple success (q=upload)
-                  value: ["ok"]
-            application/octet-stream:
+                $ref: '#/components/schemas/Node'
+        '404':
+          description: Node not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                
+    delete:
+      summary: Delete a node
+      description: |
+        Delete a file or directory.
+        For directories, all children are deleted recursively by default.
+      tags: [Nodes]
+      parameters:
+        - $ref: '#/components/parameters/deleteNodesRecursive'
+      responses:
+        '204':
+          description: Node deleted successfully
+        '404':
+          $ref: '#/components/responses/nodeNotFound404'
+        '409':
+          description: Directory not empty and recursive=false
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /storages/{storage}/moves:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      
+    post:
+      summary: Move nodes to a new location
+      description: |
+        Move one or more nodes to a different location.
+        This is a batch operation that can move multiple items atomically.
+      tags: [Moves]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - destination
+                - items
+              properties:
+                destination:
+                  type: string
+                  description: Destination path (relative to storage root)
+                  example: "archive/2024"
+                items:
+                  type: array
+                  minItems: 1
+                  description: Nodes to move
+                  items:
+                    type: object
+                    required:
+                      - path
+                    properties:
+                      path:
+                        type: string
+                        description: Source path
+                      type:
+                        $ref: '#/components/schemas/NodeType'
+            example:
+              destination: archive/2024
+              items:
+                - path: documents/report1.pdf
+                  type: file
+                - path: documents/report2.pdf
+                  type: file
+                - path: documents/old-folder
+                  type: dir
+      responses:
+        '200':
+          description: Move operation completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  moved:
+                    type: integer
+                    description: Number of nodes moved
+                  destination:
+                    type: string
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        source:
+                          type: string
+                        destination:
+                          type: string
+                        status:
+                          type: string
+                          enum: [success, failed]
+                        error:
+                          type: string
+              example:
+                moved: 3
+                destination: local://archive/2024
+                results:
+                  - source: local://documents/report1.pdf
+                    destination: local://archive/2024/report1.pdf
+                    status: success
+                  - source: local://documents/report2.pdf
+                    destination: local://archive/2024/report2.pdf
+                    status: success
+                  - source: local://documents/old-folder
+                    destination: local://archive/2024/old-folder
+                    status: success
+        '207':
+          description: Multi-status (partial success)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  moved:
+                    type: integer
+                  failed:
+                    type: integer
+                  results:
+                    type: array
+                    items:
+                      type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /storages/{storage}/copies:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      
+    post:
+      summary: Copy nodes to a new location
+      description: |
+        Copy one or more nodes to a different location.
+        Original nodes remain unchanged.
+      tags: [Copies]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - destination
+                - items
+              properties:
+                destination:
+                  type: string
+                  description: Destination path
+                items:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - path
+                    properties:
+                      path:
+                        type: string
+                      type:
+                        $ref: '#/components/schemas/NodeType'
+            example:
+              destination: backup/2024
+              items:
+                - path: documents/important.pdf
+                  type: file
+      responses:
+        '200':
+          description: Copy operation completed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  copied:
+                    type: integer
+                  destination:
+                    type: string
+                  results:
+                    type: array
+                    items:
+                      type: object
+              example:
+                copied: 1
+                destination: local://backup/2024
+                results:
+                  - source: local://documents/important.pdf
+                    destination: local://backup/2024/important.pdf
+                    status: success
+        '207':
+          description: Multi-status (partial success)
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /storages/{storage}/archives:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      
+    post:
+      summary: Create a ZIP archive from nodes
+      description: |
+        Create a ZIP archive containing specified nodes.
+        The archive is created as a new file node.
+      tags: [Archives]
+      parameters:
+        - name: path
+          in: query
+          schema:
+            type: string
+          description: Destination directory for archive (defaults to storage root)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - items
+              properties:
+                name:
+                  type: string
+                  pattern: '^[^\\/?%*:|"<>]+$'
+                  description: Archive name (without .zip extension)
+                  example: "backup-2024"
+                items:
+                  type: array
+                  minItems: 1
+                  description: Nodes to include in archive
+                  items:
+                    type: object
+                    required:
+                      - path
+                    properties:
+                      path:
+                        type: string
+                      type:
+                        $ref: '#/components/schemas/NodeType'
+            example:
+              name: backup-2024-11
+              items:
+                - path: documents/report1.pdf
+                  type: file
+                - path: documents/reports
+                  type: dir
+      responses:
+        '201':
+          description: Archive created
+          headers:
+            Location:
               schema:
                 type: string
-                format: binary
-                description: Binary file content (for q=save, returns file via preview)
+              description: URL to the created archive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Node'
+              example:
+                path: local://backup-2024-11.zip
+                type: file
+                basename: backup-2024-11.zip
+                storage: local
+                extension: zip
+                mime_type: application/zip
+                file_size: 2097152
+                last_modified: 1698364800
+                dir: local://
         '400':
-          $ref: '#/components/responses/Error'
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+                
+    get:
+      summary: List all archives
+      description: |
+        List all ZIP archives in the storage.
+        This is a convenience endpoint that filters nodes by .zip extension.
+      tags: [Archives]
+      parameters:
+        - name: path
+          in: query
+          schema:
+            type: string
+          description: Directory to search (searches recursively)
+      responses:
+        '200':
+          description: List of archives
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  archives:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Node'
+
+  /storages/{storage}/archives/{path}:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      - name: path
+        in: path
+        required: true
+        schema:
+          type: string
+        style: simple
+        description: Path to the archive file
+        
+    post:
+      summary: Extract a ZIP archive
+      description: |
+        Extract the contents of a ZIP archive.
+        Creates an extraction operation that extracts to the specified destination.
+      tags: [Archives]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                destination:
+                  type: string
+                  description: Destination path (defaults to archive's directory)
+            example:
+              destination: extracted/backup-2024
+      responses:
+        '200':
+          description: Archive extracted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  extracted_count:
+                    type: integer
+                    description: Number of files extracted
+                  destination:
+                    type: string
+                    description: Destination path
+              example:
+                extracted_count: 42
+                destination: local://extracted/backup-2024
+        '404':
+          description: Archive not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '400':
+          description: Invalid archive or extraction failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'

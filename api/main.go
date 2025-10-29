@@ -17,6 +17,8 @@ import (
 	"github.com/smilyorg/timeship/api/internal/middleware"
 )
 
+//go:generate go tool oapi-codegen -config oapi-codegen.yaml api.yaml
+
 func main() {
 	// Get the root directory for the local adapter from environment or use current directory
 	rootDir := os.Getenv("TIMESHIP_ROOT")

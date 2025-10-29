@@ -19,125 +19,69 @@ const (
 	False ErrorResponseStatus = false
 )
 
-// Defines values for FileType.
+// Defines values for NodeType.
 const (
-	Dir  FileType = "dir"
-	File FileType = "file"
+	Dir  NodeType = "dir"
+	File NodeType = "file"
 )
 
-// Defines values for Operation.
+// Defines values for GetNodesOrder.
 const (
-	OperationArchive    Operation = "archive"
-	OperationDelete     Operation = "delete"
-	OperationDownload   Operation = "download"
-	OperationIndex      Operation = "index"
-	OperationMove       Operation = "move"
-	OperationNewfile    Operation = "newfile"
-	OperationNewfolder  Operation = "newfolder"
-	OperationPreview    Operation = "preview"
-	OperationRename     Operation = "rename"
-	OperationSave       Operation = "save"
-	OperationSearch     Operation = "search"
-	OperationSubfolders Operation = "subfolders"
-	OperationUnarchive  Operation = "unarchive"
-	OperationUpload     Operation = "upload"
+	GetNodesOrderAsc  GetNodesOrder = "asc"
+	GetNodesOrderDesc GetNodesOrder = "desc"
 )
 
-// Defines values for GetParamsQ.
+// Defines values for GetNodesSort.
 const (
-	GetParamsQArchive    GetParamsQ = "archive"
-	GetParamsQDelete     GetParamsQ = "delete"
-	GetParamsQDownload   GetParamsQ = "download"
-	GetParamsQIndex      GetParamsQ = "index"
-	GetParamsQMove       GetParamsQ = "move"
-	GetParamsQNewfile    GetParamsQ = "newfile"
-	GetParamsQNewfolder  GetParamsQ = "newfolder"
-	GetParamsQPreview    GetParamsQ = "preview"
-	GetParamsQRename     GetParamsQ = "rename"
-	GetParamsQSave       GetParamsQ = "save"
-	GetParamsQSearch     GetParamsQ = "search"
-	GetParamsQSubfolders GetParamsQ = "subfolders"
-	GetParamsQUnarchive  GetParamsQ = "unarchive"
-	GetParamsQUpload     GetParamsQ = "upload"
+	GetNodesSortModifiedAt GetNodesSort = "modified_at"
+	GetNodesSortName       GetNodesSort = "name"
+	GetNodesSortSize       GetNodesSort = "size"
+	GetNodesSortType       GetNodesSort = "type"
 )
 
-// Defines values for PostParamsQ.
+// Defines values for GetStoragesStorageNodesParamsSort.
 const (
-	Archive    PostParamsQ = "archive"
-	Delete     PostParamsQ = "delete"
-	Download   PostParamsQ = "download"
-	Index      PostParamsQ = "index"
-	Move       PostParamsQ = "move"
-	Newfile    PostParamsQ = "newfile"
-	Newfolder  PostParamsQ = "newfolder"
-	Preview    PostParamsQ = "preview"
-	Rename     PostParamsQ = "rename"
-	Save       PostParamsQ = "save"
-	Search     PostParamsQ = "search"
-	Subfolders PostParamsQ = "subfolders"
-	Unarchive  PostParamsQ = "unarchive"
-	Upload     PostParamsQ = "upload"
+	GetStoragesStorageNodesParamsSortModifiedAt GetStoragesStorageNodesParamsSort = "modified_at"
+	GetStoragesStorageNodesParamsSortName       GetStoragesStorageNodesParamsSort = "name"
+	GetStoragesStorageNodesParamsSortSize       GetStoragesStorageNodesParamsSort = "size"
+	GetStoragesStorageNodesParamsSortType       GetStoragesStorageNodesParamsSort = "type"
 )
 
-// Adapter Storage adapter key
-type Adapter = string
+// Defines values for GetStoragesStorageNodesParamsOrder.
+const (
+	GetStoragesStorageNodesParamsOrderAsc  GetStoragesStorageNodesParamsOrder = "asc"
+	GetStoragesStorageNodesParamsOrderDesc GetStoragesStorageNodesParamsOrder = "desc"
+)
 
-// AdapterList List of all available storage adapter keys configured in the system
-type AdapterList = []Adapter
+// Defines values for GetStoragesStorageNodesPathParamsSort.
+const (
+	ModifiedAt GetStoragesStorageNodesPathParamsSort = "modified_at"
+	Name       GetStoragesStorageNodesPathParamsSort = "name"
+	Size       GetStoragesStorageNodesPathParamsSort = "size"
+	Type       GetStoragesStorageNodesPathParamsSort = "type"
+)
 
-// ArchiveName Archive name without extension (pathinfo PATHINFO_FILENAME extracts this, .zip added automatically)
-type ArchiveName = string
+// Defines values for GetStoragesStorageNodesPathParamsOrder.
+const (
+	Asc  GetStoragesStorageNodesPathParamsOrder = "asc"
+	Desc GetStoragesStorageNodesPathParamsOrder = "desc"
+)
 
-// ArchiveRequest defines model for ArchiveRequest.
-type ArchiveRequest struct {
-	// Items Array of items for batch operations
-	Items FileItemList `json:"items"`
+// CreateNodeRequest defines model for CreateNodeRequest.
+type CreateNodeRequest struct {
+	// Content Initial content (only for files)
+	Content *string `json:"content,omitempty"`
 
-	// Name Archive name without extension (pathinfo PATHINFO_FILENAME extracts this, .zip added automatically)
-	Name ArchiveName `json:"name"`
+	// Name Name of the node to create
+	Name string `json:"name"`
+
+	// Type Type of the filesystem node
+	Type NodeType `json:"type"`
 }
 
-// Basename Base name of the file or directory (extracted via basename() function)
-type Basename = string
-
-// CreateRequest Request to create a new file or folder (name validated against \\/?%*:|"<> characters)
-type CreateRequest struct {
-	// Name Name that must not contain \/?%*:|"<> characters
-	Name Name `json:"name"`
-}
-
-// DeleteRequest defines model for DeleteRequest.
-type DeleteRequest struct {
-	// Items Array of items for batch operations
-	Items FileItemList `json:"items"`
-}
-
-// DirectoryListingResponse Standard response containing directory contents and metadata.
-//
-// The 'adapter' field indicates which adapter was used for this response. When clients
-// make their first request without specifying an adapter parameter (or with adapter=null),
-// this field will contain the first configured adapter, allowing clients to discover and
-// use it for subsequent requests. The 'storages' array contains all available adapters.
-type DirectoryListingResponse struct {
-	// Adapter Storage adapter key
-	Adapter Adapter `json:"adapter"`
-
-	// Dirname Directory path with adapter prefix
-	Dirname DirectoryPath `json:"dirname"`
-
-	// Files Array of files and directories (directories listed first, then files)
-	Files FileList `json:"files"`
-
-	// Storages List of all available storage adapter keys configured in the system
-	Storages AdapterList `json:"storages"`
-}
-
-// DirectoryPath Directory path with adapter prefix
-type DirectoryPath = string
-
-// ErrorResponse Standard error response returned with 400 status code
+// ErrorResponse defines model for ErrorResponse.
 type ErrorResponse struct {
-	// Message Human-readable error message describing what went wrong
+	// Message Human-readable error message
 	Message string `json:"message"`
 
 	// Status Always false for error responses
@@ -147,236 +91,398 @@ type ErrorResponse struct {
 // ErrorResponseStatus Always false for error responses
 type ErrorResponseStatus bool
 
-// Extension File extension without the dot (extracted via pathinfo)
-type Extension = string
+// Node Unified representation of any filesystem object (file or directory).
+// Inspired by Unix inode concept where everything is a node with attributes.
+type Node struct {
+	// Basename Base name of the node
+	Basename string `json:"basename"`
 
-// FileContent Text content of a file
-type FileContent = string
+	// Children Child nodes (only present for directories when listing)
+	Children *[]Node `json:"children,omitempty"`
 
-// FileItem Reference to a file or directory for batch operations (move, delete, archive)
-type FileItem struct {
-	// Path Full path with adapter prefix
-	Path Path `json:"path"`
+	// Dir Parent directory path with adapter prefix
+	Dir *string `json:"dir,omitempty"`
 
-	// Type Type of the node - 'file' for files, 'dir' for directories
-	Type FileType `json:"type"`
-}
+	// Extension File extension (only for files)
+	Extension *string `json:"extension,omitempty"`
 
-// FileItemList Array of items for batch operations
-type FileItemList = []FileItem
+	// FileSize Size in bytes (only for files)
+	FileSize *int64 `json:"file_size,omitempty"`
 
-// FileList Array of files and directories (directories listed first, then files)
-type FileList = []FileNode
+	// LastModified Unix timestamp of last modification
+	LastModified *int64 `json:"last_modified,omitempty"`
 
-// FileNode Represents a file or directory in the file system
-type FileNode struct {
-	// Basename Base name of the file or directory (extracted via basename() function)
-	Basename Basename `json:"basename"`
-
-	// Dir Directory path with adapter prefix
-	Dir *DirectoryPath `json:"dir,omitempty"`
-
-	// Extension File extension without the dot (extracted via pathinfo)
-	Extension *Extension `json:"extension,omitempty"`
-
-	// FileSize File size in bytes (provided by filesystem StorageAttributes)
-	FileSize *FileSize `json:"file_size,omitempty"`
-
-	// LastModified Unix timestamp
-	LastModified *Timestamp `json:"last_modified,omitempty"`
-
-	// MimeType MIME type of the file (detected by filesystem)
-	MimeType *MimeType `json:"mime_type,omitempty"`
+	// MimeType MIME type (only for files)
+	MimeType *string `json:"mime_type,omitempty"`
 
 	// Path Full path with adapter prefix
-	Path Path `json:"path"`
+	Path string `json:"path"`
 
-	// Storage Storage adapter key
-	Storage Adapter `json:"storage"`
+	// Permissions Node permissions
+	Permissions *struct {
+		Executable *bool `json:"executable,omitempty"`
+		Readable   *bool `json:"readable,omitempty"`
+		Writable   *bool `json:"writable,omitempty"`
+	} `json:"permissions,omitempty"`
 
-	// Type Type of the node - 'file' for files, 'dir' for directories
-	Type FileType `json:"type"`
+	// Storage Storage adapter identifier
+	Storage string `json:"storage"`
 
-	// Url Public URL to access the file
-	Url *Url `json:"url,omitempty"`
+	// Type Type of the filesystem node
+	Type NodeType `json:"type"`
 }
 
-// FileSize File size in bytes (provided by filesystem StorageAttributes)
-type FileSize = int64
+// NodeList Response containing list of nodes
+type NodeList struct {
+	// Adapter Current storage adapter
+	Adapter string `json:"adapter"`
 
-// FileType Type of the node - 'file' for files, 'dir' for directories
-type FileType string
+	// Dirname Current directory path with adapter prefix
+	Dirname string `json:"dirname"`
 
-// Folder Subfolder information for tree navigation
-type Folder struct {
-	// Adapter Storage adapter key
-	Adapter Adapter `json:"adapter"`
+	// Files Child nodes
+	Files []Node `json:"files"`
 
-	// Basename Base name of the file or directory (extracted via basename() function)
-	Basename Basename `json:"basename"`
+	// Path Current directory path without adapter prefix
+	Path *string `json:"path,omitempty"`
 
-	// Path Full path with adapter prefix
-	Path Path `json:"path"`
+	// Storage Current storage adapter
+	Storage string `json:"storage"`
+
+	// Storages Available storage adapters
+	Storages []string `json:"storages"`
 }
 
-// FolderList Array of folders
-type FolderList = []Folder
+// NodeType Type of the filesystem node
+type NodeType string
 
-// MimeType MIME type of the file (detected by filesystem)
-type MimeType = string
+// UpdateNodeRequest defines model for UpdateNodeRequest.
+type UpdateNodeRequest struct {
+	// Content Updated content (only for files)
+	Content *string `json:"content,omitempty"`
 
-// MoveRequest defines model for MoveRequest.
-type MoveRequest struct {
-	// Item Directory path with adapter prefix
-	Item DirectoryPath `json:"item"`
-
-	// Items Array of items for batch operations
-	Items FileItemList `json:"items"`
+	// Name New name for the node (rename)
+	Name *string `json:"name,omitempty"`
 }
 
-// Name Name that must not contain \/?%*:|"<> characters
-type Name = string
+// DeleteNodesRecursive defines model for deleteNodesRecursive.
+type DeleteNodesRecursive = bool
 
-// Path Full path with adapter prefix
-type Path = string
+// GetNodesChildren defines model for getNodesChildren.
+type GetNodesChildren = bool
 
-// RenameRequest defines model for RenameRequest.
-type RenameRequest struct {
-	// Item Full path with adapter prefix
-	Item Path `json:"item"`
+// GetNodesDownload defines model for getNodesDownload.
+type GetNodesDownload = bool
 
-	// Name Name that must not contain \/?%*:|"<> characters
-	Name Name `json:"name"`
-}
+// GetNodesFilter defines model for getNodesFilter.
+type GetNodesFilter = string
 
-// SaveRequest defines model for SaveRequest.
-type SaveRequest struct {
-	// Content Text content of a file
-	Content FileContent `json:"content"`
-}
+// GetNodesOrder defines model for getNodesOrder.
+type GetNodesOrder string
 
-// SearchFilter Search filter/pattern (case-insensitive, uses fnmatch with wildcards)
-type SearchFilter = string
+// GetNodesSearch defines model for getNodesSearch.
+type GetNodesSearch = string
 
-// SubfoldersResponse defines model for SubfoldersResponse.
-type SubfoldersResponse struct {
-	// Folders Array of folders
-	Folders FolderList `json:"folders"`
-}
+// GetNodesSort defines model for getNodesSort.
+type GetNodesSort string
 
-// Timestamp Unix timestamp
-type Timestamp = int64
+// GetNodesType Type of the filesystem node
+type GetNodesType = NodeType
 
-// UnarchiveRequest defines model for UnarchiveRequest.
-type UnarchiveRequest struct {
-	// Item Full path with adapter prefix
-	Item Path `json:"item"`
-}
+// NodePath defines model for nodePath.
+type NodePath = string
 
-// UploadSuccessResponse defines model for UploadSuccessResponse.
-type UploadSuccessResponse = []string
+// Storage defines model for storage.
+type Storage = string
 
-// Url Public URL to access the file
-type Url = string
+// BadRequest400 defines model for badRequest400.
+type BadRequest400 = ErrorResponse
 
-// Operation defines model for operation.
-type Operation string
+// NodeConflict409 defines model for nodeConflict409.
+type NodeConflict409 = ErrorResponse
 
-// Error Standard error response returned with 400 status code
-type Error = ErrorResponse
+// NodeCreated201 Unified representation of any filesystem object (file or directory).
+// Inspired by Unix inode concept where everything is a node with attributes.
+type NodeCreated201 = Node
 
-// GetParams defines parameters for Get.
-type GetParams struct {
-	// Q Operation to perform. This parameter routes the request to the appropriate handler method.
-	//
-	// Valid operations and their HTTP methods:
-	// - GET: index, subfolders, download, preview, search
-	// - POST: newfolder, newfile, rename, move, delete, upload, archive, unarchive, save
-	Q GetParamsQ `form:"q" json:"q"`
+// NodeNotFound404 defines model for nodeNotFound404.
+type NodeNotFound404 = ErrorResponse
 
-	// Adapter Storage adapter key to use. Optional parameter that allows clients to specify which storage adapter to use.
-	//
-	// Behavior:
-	// - If omitted or null: Server returns the first configured adapter in the response, allowing clients to discover available adapters
-	// - If provided but invalid: Server returns the first configured adapter (fallback behavior)
-	// - If provided and valid: Server uses the specified adapter
-	//
-	// This allows clients to start with adapter=null, receive the adapter list in the response,
-	// and then use a specific adapter in subsequent requests.
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory or file path with adapter prefix. Required for some operations.
-	// - For index/subfolders/search: Directory path (defaults to 'adapter://')
-	// - For preview/download: Full file path (required)
-	Path *string `form:"path,omitempty" json:"path,omitempty"`
-
-	// Filter Search filter (required when q=search). Case-insensitive, uses fnmatch with wildcards.
-	Filter *SearchFilter `form:"filter,omitempty" json:"filter,omitempty"`
-}
-
-// GetParamsQ defines parameters for Get.
-type GetParamsQ string
-
-// PostJSONBody defines parameters for Post.
-type PostJSONBody struct {
+// NodeSuccess200 defines model for nodeSuccess200.
+type NodeSuccess200 struct {
 	union json.RawMessage
 }
 
-// PostMultipartBody defines parameters for Post.
-type PostMultipartBody struct {
-	// File File data to upload
-	File openapi_types.File `json:"file"`
+// GetStoragesStorageArchivesParams defines parameters for GetStoragesStorageArchives.
+type GetStoragesStorageArchivesParams struct {
+	// Path Directory to search (searches recursively)
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
+}
 
-	// Name Target filename
+// PostStoragesStorageArchivesJSONBody defines parameters for PostStoragesStorageArchives.
+type PostStoragesStorageArchivesJSONBody struct {
+	// Items Nodes to include in archive
+	Items []struct {
+		Path string `json:"path"`
+
+		// Type Type of the filesystem node
+		Type *NodeType `json:"type,omitempty"`
+	} `json:"items"`
+
+	// Name Archive name (without .zip extension)
 	Name string `json:"name"`
 }
 
-// PostParams defines parameters for Post.
-type PostParams struct {
-	// Q Operation to perform. This parameter routes the request to the appropriate handler method.
-	//
-	// Valid operations and their HTTP methods:
-	// - GET: index, subfolders, download, preview, search
-	// - POST: newfolder, newfile, rename, move, delete, upload, archive, unarchive, save
-	Q PostParamsQ `form:"q" json:"q"`
-
-	// Adapter Storage adapter key to use. Optional parameter that allows clients to specify which storage adapter to use.
-	//
-	// Behavior:
-	// - If omitted or null: Server returns the first configured adapter in the response, allowing clients to discover available adapters
-	// - If provided but invalid: Server returns the first configured adapter (fallback behavior)
-	// - If provided and valid: Server uses the specified adapter
-	//
-	// This allows clients to start with adapter=null, receive the adapter list in the response,
-	// and then use a specific adapter in subsequent requests.
-	Adapter *Adapter `form:"adapter,omitempty" json:"adapter,omitempty"`
-
-	// Path Directory or file path with adapter prefix.
-	// - For newfolder/newfile/upload/move/delete/archive/unarchive: Directory path where operation occurs
-	// - For save/rename: Full path to the file
-	Path string `form:"path" json:"path"`
+// PostStoragesStorageArchivesParams defines parameters for PostStoragesStorageArchives.
+type PostStoragesStorageArchivesParams struct {
+	// Path Destination directory for archive (defaults to storage root)
+	Path *string `form:"path,omitempty" json:"path,omitempty"`
 }
 
-// PostParamsQ defines parameters for Post.
-type PostParamsQ string
+// PostStoragesStorageArchivesPathJSONBody defines parameters for PostStoragesStorageArchivesPath.
+type PostStoragesStorageArchivesPathJSONBody struct {
+	// Destination Destination path (defaults to archive's directory)
+	Destination *string `json:"destination,omitempty"`
+}
 
-// PostJSONRequestBody defines body for Post for application/json ContentType.
-type PostJSONRequestBody PostJSONBody
+// PostStoragesStorageCopiesJSONBody defines parameters for PostStoragesStorageCopies.
+type PostStoragesStorageCopiesJSONBody struct {
+	// Destination Destination path
+	Destination string `json:"destination"`
+	Items       []struct {
+		Path string `json:"path"`
 
-// PostMultipartRequestBody defines body for Post for multipart/form-data ContentType.
-type PostMultipartRequestBody PostMultipartBody
+		// Type Type of the filesystem node
+		Type *NodeType `json:"type,omitempty"`
+	} `json:"items"`
+}
+
+// PostStoragesStorageMovesJSONBody defines parameters for PostStoragesStorageMoves.
+type PostStoragesStorageMovesJSONBody struct {
+	// Destination Destination path (relative to storage root)
+	Destination string `json:"destination"`
+
+	// Items Nodes to move
+	Items []struct {
+		// Path Source path
+		Path string `json:"path"`
+
+		// Type Type of the filesystem node
+		Type *NodeType `json:"type,omitempty"`
+	} `json:"items"`
+}
+
+// GetStoragesStorageNodesParams defines parameters for GetStoragesStorageNodes.
+type GetStoragesStorageNodesParams struct {
+	// Type Filter children by type (for directories)
+	Type *GetNodesType `form:"type,omitempty" json:"type,omitempty"`
+
+	// Filter Filename pattern (glob-style, e.g., *.pdf)
+	Filter *GetNodesFilter `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Search Search query - searches recursively from this path
+	Search *GetNodesSearch `form:"search,omitempty" json:"search,omitempty"`
+
+	// Children Include children in response (for directories)
+	Children *GetNodesChildren `form:"children,omitempty" json:"children,omitempty"`
+
+	// Download Set Content-Disposition to attachment (for files)
+	Download *GetNodesDownload `form:"download,omitempty" json:"download,omitempty"`
+
+	// Sort Sort field for children
+	Sort *GetStoragesStorageNodesParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Order Sort order
+	Order *GetStoragesStorageNodesParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// GetStoragesStorageNodesParamsSort defines parameters for GetStoragesStorageNodes.
+type GetStoragesStorageNodesParamsSort string
+
+// GetStoragesStorageNodesParamsOrder defines parameters for GetStoragesStorageNodes.
+type GetStoragesStorageNodesParamsOrder string
+
+// PostStoragesStorageNodesMultipartBody defines parameters for PostStoragesStorageNodes.
+type PostStoragesStorageNodesMultipartBody struct {
+	// File File to upload
+	File openapi_types.File `json:"file"`
+
+	// Name Optional custom filename (defaults to uploaded filename)
+	Name *string `json:"name,omitempty"`
+}
+
+// DeleteStoragesStorageNodesPathParams defines parameters for DeleteStoragesStorageNodesPath.
+type DeleteStoragesStorageNodesPathParams struct {
+	// Recursive Delete recursively (for directories)
+	Recursive *DeleteNodesRecursive `form:"recursive,omitempty" json:"recursive,omitempty"`
+}
+
+// GetStoragesStorageNodesPathParams defines parameters for GetStoragesStorageNodesPath.
+type GetStoragesStorageNodesPathParams struct {
+	// Type Filter children by type (for directories)
+	Type *GetNodesType `form:"type,omitempty" json:"type,omitempty"`
+
+	// Filter Filename pattern (glob-style, e.g., *.pdf)
+	Filter *GetNodesFilter `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Search Search query - searches recursively from this path
+	Search *GetNodesSearch `form:"search,omitempty" json:"search,omitempty"`
+
+	// Children Include children in response (for directories)
+	Children *GetNodesChildren `form:"children,omitempty" json:"children,omitempty"`
+
+	// Download Set Content-Disposition to attachment (for files)
+	Download *GetNodesDownload `form:"download,omitempty" json:"download,omitempty"`
+
+	// Sort Sort field for children
+	Sort *GetStoragesStorageNodesPathParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Order Sort order
+	Order *GetStoragesStorageNodesPathParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// GetStoragesStorageNodesPathParamsSort defines parameters for GetStoragesStorageNodesPath.
+type GetStoragesStorageNodesPathParamsSort string
+
+// GetStoragesStorageNodesPathParamsOrder defines parameters for GetStoragesStorageNodesPath.
+type GetStoragesStorageNodesPathParamsOrder string
+
+// PostStoragesStorageNodesPathMultipartBody defines parameters for PostStoragesStorageNodesPath.
+type PostStoragesStorageNodesPathMultipartBody struct {
+	// File File to upload
+	File openapi_types.File `json:"file"`
+
+	// Name Optional custom filename (defaults to uploaded filename)
+	Name *string `json:"name,omitempty"`
+}
+
+// PostStoragesStorageArchivesJSONRequestBody defines body for PostStoragesStorageArchives for application/json ContentType.
+type PostStoragesStorageArchivesJSONRequestBody PostStoragesStorageArchivesJSONBody
+
+// PostStoragesStorageArchivesPathJSONRequestBody defines body for PostStoragesStorageArchivesPath for application/json ContentType.
+type PostStoragesStorageArchivesPathJSONRequestBody PostStoragesStorageArchivesPathJSONBody
+
+// PostStoragesStorageCopiesJSONRequestBody defines body for PostStoragesStorageCopies for application/json ContentType.
+type PostStoragesStorageCopiesJSONRequestBody PostStoragesStorageCopiesJSONBody
+
+// PostStoragesStorageMovesJSONRequestBody defines body for PostStoragesStorageMoves for application/json ContentType.
+type PostStoragesStorageMovesJSONRequestBody PostStoragesStorageMovesJSONBody
+
+// PostStoragesStorageNodesJSONRequestBody defines body for PostStoragesStorageNodes for application/json ContentType.
+type PostStoragesStorageNodesJSONRequestBody = CreateNodeRequest
+
+// PostStoragesStorageNodesMultipartRequestBody defines body for PostStoragesStorageNodes for multipart/form-data ContentType.
+type PostStoragesStorageNodesMultipartRequestBody PostStoragesStorageNodesMultipartBody
+
+// PatchStoragesStorageNodesPathJSONRequestBody defines body for PatchStoragesStorageNodesPath for application/json ContentType.
+type PatchStoragesStorageNodesPathJSONRequestBody = UpdateNodeRequest
+
+// PostStoragesStorageNodesPathJSONRequestBody defines body for PostStoragesStorageNodesPath for application/json ContentType.
+type PostStoragesStorageNodesPathJSONRequestBody = CreateNodeRequest
+
+// PostStoragesStorageNodesPathMultipartRequestBody defines body for PostStoragesStorageNodesPath for multipart/form-data ContentType.
+type PostStoragesStorageNodesPathMultipartRequestBody PostStoragesStorageNodesPathMultipartBody
+
+// AsNode returns the union data inside the NodeSuccess200 as a Node
+func (t NodeSuccess200) AsNode() (Node, error) {
+	var body Node
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNode overwrites any union data inside the NodeSuccess200 as the provided Node
+func (t *NodeSuccess200) FromNode(v Node) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNode performs a merge with any union data inside the NodeSuccess200, using the provided Node
+func (t *NodeSuccess200) MergeNode(v Node) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsNodeList returns the union data inside the NodeSuccess200 as a NodeList
+func (t NodeSuccess200) AsNodeList() (NodeList, error) {
+	var body NodeList
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromNodeList overwrites any union data inside the NodeSuccess200 as the provided NodeList
+func (t *NodeSuccess200) FromNodeList(v NodeList) error {
+	b, err := json.Marshal(v)
+	t.union = b
+	return err
+}
+
+// MergeNodeList performs a merge with any union data inside the NodeSuccess200, using the provided NodeList
+func (t *NodeSuccess200) MergeNodeList(v NodeList) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t NodeSuccess200) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *NodeSuccess200) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
-	// Execute read operations
-	// (GET /)
-	Get(w http.ResponseWriter, r *http.Request, params GetParams)
-	// CORS preflight
-	// (OPTIONS /)
-	Options(w http.ResponseWriter, r *http.Request)
-	// Execute write operations
-	// (POST /)
-	Post(w http.ResponseWriter, r *http.Request, params PostParams)
+	// List available storage backends
+	// (GET /storages)
+	GetStorages(w http.ResponseWriter, r *http.Request)
+	// List all archives
+	// (GET /storages/{storage}/archives)
+	GetStoragesStorageArchives(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageArchivesParams)
+	// Create a ZIP archive from nodes
+	// (POST /storages/{storage}/archives)
+	PostStoragesStorageArchives(w http.ResponseWriter, r *http.Request, storage Storage, params PostStoragesStorageArchivesParams)
+	// Extract a ZIP archive
+	// (POST /storages/{storage}/archives/{path})
+	PostStoragesStorageArchivesPath(w http.ResponseWriter, r *http.Request, storage Storage, path string)
+	// Copy nodes to a new location
+	// (POST /storages/{storage}/copies)
+	PostStoragesStorageCopies(w http.ResponseWriter, r *http.Request, storage Storage)
+	// Move nodes to a new location
+	// (POST /storages/{storage}/moves)
+	PostStoragesStorageMoves(w http.ResponseWriter, r *http.Request, storage Storage)
+	// Get storage root information or content
+	// (GET /storages/{storage}/nodes)
+	GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageNodesParams)
+	// Create a new child node at storage root
+	// (POST /storages/{storage}/nodes)
+	PostStoragesStorageNodes(w http.ResponseWriter, r *http.Request, storage Storage)
+	// Delete a node
+	// (DELETE /storages/{storage}/nodes/{path...})
+	DeleteStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request, storage Storage, path NodePath, params DeleteStoragesStorageNodesPathParams)
+	// Get node information or content
+	// (GET /storages/{storage}/nodes/{path...})
+	GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request, storage Storage, path NodePath, params GetStoragesStorageNodesPathParams)
+	// Update node metadata or content
+	// (PATCH /storages/{storage}/nodes/{path...})
+	PatchStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request, storage Storage, path NodePath)
+	// Create a new child node
+	// (POST /storages/{storage}/nodes/{path...})
+	PostStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request, storage Storage, path NodePath)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -388,42 +494,198 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(http.Handler) http.Handler
 
-// Get operation middleware
-func (siw *ServerInterfaceWrapper) Get(w http.ResponseWriter, r *http.Request) {
+// GetStorages operation middleware
+func (siw *ServerInterfaceWrapper) GetStorages(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStorages(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetStoragesStorageArchives operation middleware
+func (siw *ServerInterfaceWrapper) GetStoragesStorageArchives(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
 	// Parameter object where we will unmarshal all parameters from the context
-	var params GetParams
-
-	// ------------- Required query parameter "q" -------------
-
-	if paramValue := r.URL.Query().Get("q"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "q", r.URL.Query(), &params.Q)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
+	var params GetStoragesStorageArchivesParams
 
 	// ------------- Optional query parameter "path" -------------
 
 	err = runtime.BindQueryParameter("form", true, false, "path", r.URL.Query(), &params.Path)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStoragesStorageArchives(w, r, storage, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostStoragesStorageArchives operation middleware
+func (siw *ServerInterfaceWrapper) PostStoragesStorageArchives(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostStoragesStorageArchivesParams
+
+	// ------------- Optional query parameter "path" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "path", r.URL.Query(), &params.Path)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostStoragesStorageArchives(w, r, storage, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostStoragesStorageArchivesPath operation middleware
+func (siw *ServerInterfaceWrapper) PostStoragesStorageArchivesPath(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "path" -------------
+	var path string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "path", r.PathValue("path"), &path, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostStoragesStorageArchivesPath(w, r, storage, path)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostStoragesStorageCopies operation middleware
+func (siw *ServerInterfaceWrapper) PostStoragesStorageCopies(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostStoragesStorageCopies(w, r, storage)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostStoragesStorageMoves operation middleware
+func (siw *ServerInterfaceWrapper) PostStoragesStorageMoves(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostStoragesStorageMoves(w, r, storage)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetStoragesStorageNodes operation middleware
+func (siw *ServerInterfaceWrapper) GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetStoragesStorageNodesParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
 		return
 	}
 
@@ -435,8 +697,48 @@ func (siw *ServerInterfaceWrapper) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "children" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "children", r.URL.Query(), &params.Children)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "children", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "download" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "download", r.URL.Query(), &params.Download)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "download", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sort", r.URL.Query(), &params.Sort)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "order", r.URL.Query(), &params.Order)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Get(w, r, params)
+		siw.Handler.GetStoragesStorageNodes(w, r, storage, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -446,68 +748,228 @@ func (siw *ServerInterfaceWrapper) Get(w http.ResponseWriter, r *http.Request) {
 	handler.ServeHTTP(w, r)
 }
 
-// Options operation middleware
-func (siw *ServerInterfaceWrapper) Options(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Options(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// Post operation middleware
-func (siw *ServerInterfaceWrapper) Post(w http.ResponseWriter, r *http.Request) {
+// PostStoragesStorageNodes operation middleware
+func (siw *ServerInterfaceWrapper) PostStoragesStorageNodes(w http.ResponseWriter, r *http.Request) {
 
 	var err error
 
-	// Parameter object where we will unmarshal all parameters from the context
-	var params PostParams
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
 
-	// ------------- Required query parameter "q" -------------
-
-	if paramValue := r.URL.Query().Get("q"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "q", r.URL.Query(), &params.Q)
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
 	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
-		return
-	}
-
-	// ------------- Optional query parameter "adapter" -------------
-
-	err = runtime.BindQueryParameter("form", true, false, "adapter", r.URL.Query(), &params.Adapter)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "adapter", Err: err})
-		return
-	}
-
-	// ------------- Required query parameter "path" -------------
-
-	if paramValue := r.URL.Query().Get("path"); paramValue != "" {
-
-	} else {
-		siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "path"})
-		return
-	}
-
-	err = runtime.BindQueryParameter("form", true, true, "path", r.URL.Query(), &params.Path)
-	if err != nil {
-		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path", Err: err})
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
 		return
 	}
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.Post(w, r, params)
+		siw.Handler.PostStoragesStorageNodes(w, r, storage)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteStoragesStorageNodesPath operation middleware
+func (siw *ServerInterfaceWrapper) DeleteStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "path..." -------------
+	var path NodePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "path", r.PathValue("path"), &path, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path...", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteStoragesStorageNodesPathParams
+
+	// ------------- Optional query parameter "recursive" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "recursive", r.URL.Query(), &params.Recursive)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "recursive", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteStoragesStorageNodesPath(w, r, storage, path, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetStoragesStorageNodesPath operation middleware
+func (siw *ServerInterfaceWrapper) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "path..." -------------
+	var path NodePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "path", r.PathValue("path"), &path, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path...", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetStoragesStorageNodesPathParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "filter", r.URL.Query(), &params.Filter)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "children" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "children", r.URL.Query(), &params.Children)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "children", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "download" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "download", r.URL.Query(), &params.Download)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "download", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sort", r.URL.Query(), &params.Sort)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "order", r.URL.Query(), &params.Order)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStoragesStorageNodesPath(w, r, storage, path, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchStoragesStorageNodesPath operation middleware
+func (siw *ServerInterfaceWrapper) PatchStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "path..." -------------
+	var path NodePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "path", r.PathValue("path"), &path, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path...", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchStoragesStorageNodesPath(w, r, storage, path)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostStoragesStorageNodesPath operation middleware
+func (siw *ServerInterfaceWrapper) PostStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "path..." -------------
+	var path NodePath
+
+	err = runtime.BindStyledParameterWithOptions("simple", "path", r.PathValue("path"), &path, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path...", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostStoragesStorageNodesPath(w, r, storage, path)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -637,9 +1099,18 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 		ErrorHandlerFunc:   options.ErrorHandlerFunc,
 	}
 
-	m.HandleFunc("GET "+options.BaseURL+"/{$}", wrapper.Get)
-	m.HandleFunc("OPTIONS "+options.BaseURL+"/{$}", wrapper.Options)
-	m.HandleFunc("POST "+options.BaseURL+"/{$}", wrapper.Post)
+	m.HandleFunc("GET "+options.BaseURL+"/storages", wrapper.GetStorages)
+	m.HandleFunc("GET "+options.BaseURL+"/storages/{storage}/archives", wrapper.GetStoragesStorageArchives)
+	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/archives", wrapper.PostStoragesStorageArchives)
+	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/archives/{path}", wrapper.PostStoragesStorageArchivesPath)
+	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/copies", wrapper.PostStoragesStorageCopies)
+	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/moves", wrapper.PostStoragesStorageMoves)
+	m.HandleFunc("GET "+options.BaseURL+"/storages/{storage}/nodes", wrapper.GetStoragesStorageNodes)
+	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/nodes", wrapper.PostStoragesStorageNodes)
+	m.HandleFunc("DELETE "+options.BaseURL+"/storages/{storage}/nodes/{path...}", wrapper.DeleteStoragesStorageNodesPath)
+	m.HandleFunc("GET "+options.BaseURL+"/storages/{storage}/nodes/{path...}", wrapper.GetStoragesStorageNodesPath)
+	m.HandleFunc("PATCH "+options.BaseURL+"/storages/{storage}/nodes/{path...}", wrapper.PatchStoragesStorageNodesPath)
+	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/nodes/{path...}", wrapper.PostStoragesStorageNodesPath)
 
 	return m
 }
