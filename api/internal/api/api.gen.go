@@ -25,6 +25,14 @@ const (
 	File NodeType = "file"
 )
 
+// Defines values for SnapshotType.
+const (
+	Borg   SnapshotType = "borg"
+	Git    SnapshotType = "git"
+	Restic SnapshotType = "restic"
+	Zfs    SnapshotType = "zfs"
+)
+
 // Defines values for GetNodesOrder.
 const (
 	GetNodesOrderAsc  GetNodesOrder = "asc"
@@ -37,6 +45,45 @@ const (
 	GetNodesSortName       GetNodesSort = "name"
 	GetNodesSortSize       GetNodesSort = "size"
 	GetNodesSortType       GetNodesSort = "type"
+)
+
+// Defines values for SnapshotsOrder.
+const (
+	SnapshotsOrderAsc  SnapshotsOrder = "asc"
+	SnapshotsOrderDesc SnapshotsOrder = "desc"
+)
+
+// Defines values for SnapshotsSort.
+const (
+	SnapshotsSortName      SnapshotsSort = "name"
+	SnapshotsSortSize      SnapshotsSort = "size"
+	SnapshotsSortTimestamp SnapshotsSort = "timestamp"
+)
+
+// Defines values for GetStoragesStorageNodeSnapshotsParamsSort.
+const (
+	GetStoragesStorageNodeSnapshotsParamsSortName      GetStoragesStorageNodeSnapshotsParamsSort = "name"
+	GetStoragesStorageNodeSnapshotsParamsSortSize      GetStoragesStorageNodeSnapshotsParamsSort = "size"
+	GetStoragesStorageNodeSnapshotsParamsSortTimestamp GetStoragesStorageNodeSnapshotsParamsSort = "timestamp"
+)
+
+// Defines values for GetStoragesStorageNodeSnapshotsParamsOrder.
+const (
+	GetStoragesStorageNodeSnapshotsParamsOrderAsc  GetStoragesStorageNodeSnapshotsParamsOrder = "asc"
+	GetStoragesStorageNodeSnapshotsParamsOrderDesc GetStoragesStorageNodeSnapshotsParamsOrder = "desc"
+)
+
+// Defines values for GetStoragesStorageNodeSnapshotsPathParamsSort.
+const (
+	GetStoragesStorageNodeSnapshotsPathParamsSortName      GetStoragesStorageNodeSnapshotsPathParamsSort = "name"
+	GetStoragesStorageNodeSnapshotsPathParamsSortSize      GetStoragesStorageNodeSnapshotsPathParamsSort = "size"
+	GetStoragesStorageNodeSnapshotsPathParamsSortTimestamp GetStoragesStorageNodeSnapshotsPathParamsSort = "timestamp"
+)
+
+// Defines values for GetStoragesStorageNodeSnapshotsPathParamsOrder.
+const (
+	GetStoragesStorageNodeSnapshotsPathParamsOrderAsc  GetStoragesStorageNodeSnapshotsPathParamsOrder = "asc"
+	GetStoragesStorageNodeSnapshotsPathParamsOrderDesc GetStoragesStorageNodeSnapshotsPathParamsOrder = "desc"
 )
 
 // Defines values for GetStoragesStorageNodesParamsSort.
@@ -55,16 +102,44 @@ const (
 
 // Defines values for GetStoragesStorageNodesPathParamsSort.
 const (
-	ModifiedAt GetStoragesStorageNodesPathParamsSort = "modified_at"
-	Name       GetStoragesStorageNodesPathParamsSort = "name"
-	Size       GetStoragesStorageNodesPathParamsSort = "size"
-	Type       GetStoragesStorageNodesPathParamsSort = "type"
+	GetStoragesStorageNodesPathParamsSortModifiedAt GetStoragesStorageNodesPathParamsSort = "modified_at"
+	GetStoragesStorageNodesPathParamsSortName       GetStoragesStorageNodesPathParamsSort = "name"
+	GetStoragesStorageNodesPathParamsSortSize       GetStoragesStorageNodesPathParamsSort = "size"
+	GetStoragesStorageNodesPathParamsSortType       GetStoragesStorageNodesPathParamsSort = "type"
 )
 
 // Defines values for GetStoragesStorageNodesPathParamsOrder.
 const (
-	Asc  GetStoragesStorageNodesPathParamsOrder = "asc"
-	Desc GetStoragesStorageNodesPathParamsOrder = "desc"
+	GetStoragesStorageNodesPathParamsOrderAsc  GetStoragesStorageNodesPathParamsOrder = "asc"
+	GetStoragesStorageNodesPathParamsOrderDesc GetStoragesStorageNodesPathParamsOrder = "desc"
+)
+
+// Defines values for GetStoragesStorageSnapshotNodesSnapshotParamsSort.
+const (
+	GetStoragesStorageSnapshotNodesSnapshotParamsSortModifiedAt GetStoragesStorageSnapshotNodesSnapshotParamsSort = "modified_at"
+	GetStoragesStorageSnapshotNodesSnapshotParamsSortName       GetStoragesStorageSnapshotNodesSnapshotParamsSort = "name"
+	GetStoragesStorageSnapshotNodesSnapshotParamsSortSize       GetStoragesStorageSnapshotNodesSnapshotParamsSort = "size"
+	GetStoragesStorageSnapshotNodesSnapshotParamsSortType       GetStoragesStorageSnapshotNodesSnapshotParamsSort = "type"
+)
+
+// Defines values for GetStoragesStorageSnapshotNodesSnapshotParamsOrder.
+const (
+	GetStoragesStorageSnapshotNodesSnapshotParamsOrderAsc  GetStoragesStorageSnapshotNodesSnapshotParamsOrder = "asc"
+	GetStoragesStorageSnapshotNodesSnapshotParamsOrderDesc GetStoragesStorageSnapshotNodesSnapshotParamsOrder = "desc"
+)
+
+// Defines values for GetStoragesStorageSnapshotNodesSnapshotPathParamsSort.
+const (
+	GetStoragesStorageSnapshotNodesSnapshotPathParamsSortModifiedAt GetStoragesStorageSnapshotNodesSnapshotPathParamsSort = "modified_at"
+	GetStoragesStorageSnapshotNodesSnapshotPathParamsSortName       GetStoragesStorageSnapshotNodesSnapshotPathParamsSort = "name"
+	GetStoragesStorageSnapshotNodesSnapshotPathParamsSortSize       GetStoragesStorageSnapshotNodesSnapshotPathParamsSort = "size"
+	GetStoragesStorageSnapshotNodesSnapshotPathParamsSortType       GetStoragesStorageSnapshotNodesSnapshotPathParamsSort = "type"
+)
+
+// Defines values for GetStoragesStorageSnapshotNodesSnapshotPathParamsOrder.
+const (
+	GetStoragesStorageSnapshotNodesSnapshotPathParamsOrderAsc  GetStoragesStorageSnapshotNodesSnapshotPathParamsOrder = "asc"
+	GetStoragesStorageSnapshotNodesSnapshotPathParamsOrderDesc GetStoragesStorageSnapshotNodesSnapshotPathParamsOrder = "desc"
 )
 
 // CreateNodeRequest defines model for CreateNodeRequest.
@@ -153,8 +228,50 @@ type NodeList struct {
 	Storages []string `json:"storages"`
 }
 
+// NodeSnapshotsList Response for node-snapshots endpoint.
+// Lists all snapshots available for a specific node.
+type NodeSnapshotsList struct {
+	// AvailableTypes Available snapshot types for this storage
+	AvailableTypes *[]SnapshotType `json:"available_types,omitempty"`
+
+	// Path Path of the node (relative to storage root, empty string for root)
+	Path string `json:"path"`
+
+	// Snapshots List of snapshots for this node, ordered by timestamp (newest first by default)
+	Snapshots []Snapshot `json:"snapshots"`
+
+	// Storage Storage adapter identifier
+	Storage string `json:"storage"`
+}
+
 // NodeType Type of the filesystem node
 type NodeType string
+
+// Snapshot Point-in-time snapshot of a file or directory.
+// Snapshot ID format: "type:backend-id" (e.g., "zfs:tank@daily-2024-10-28")
+type Snapshot struct {
+	// Id Unique identifier for this snapshot in format "type:backend-id"
+	// Used in snapshot-nodes endpoint to reference this snapshot
+	Id string `json:"id"`
+
+	// Metadata Backend-specific metadata
+	Metadata *map[string]interface{} `json:"metadata,omitempty"`
+
+	// Name Human-readable name/label for snapshot
+	Name *string `json:"name,omitempty"`
+
+	// Size Size of the node in this snapshot (file size or directory size)
+	Size *int64 `json:"size,omitempty"`
+
+	// Timestamp Unix timestamp when snapshot was created
+	Timestamp int64 `json:"timestamp"`
+
+	// Type Snapshot backend type
+	Type SnapshotType `json:"type"`
+}
+
+// SnapshotType Snapshot backend type
+type SnapshotType string
 
 // UpdateNodeRequest defines model for UpdateNodeRequest.
 type UpdateNodeRequest struct {
@@ -191,6 +308,21 @@ type GetNodesType = NodeType
 
 // NodePath defines model for nodePath.
 type NodePath = string
+
+// SnapshotsLimit defines model for snapshotsLimit.
+type SnapshotsLimit = int
+
+// SnapshotsOffset defines model for snapshotsOffset.
+type SnapshotsOffset = int
+
+// SnapshotsOrder defines model for snapshotsOrder.
+type SnapshotsOrder string
+
+// SnapshotsSort defines model for snapshotsSort.
+type SnapshotsSort string
+
+// SnapshotsType Snapshot backend type
+type SnapshotsType = SnapshotType
 
 // Storage defines model for storage.
 type Storage = string
@@ -271,6 +403,54 @@ type PostStoragesStorageMovesJSONBody struct {
 		Type *NodeType `json:"type,omitempty"`
 	} `json:"items"`
 }
+
+// GetStoragesStorageNodeSnapshotsParams defines parameters for GetStoragesStorageNodeSnapshots.
+type GetStoragesStorageNodeSnapshotsParams struct {
+	// Type Filter snapshots by type (optional, can repeat for multiple types)
+	Type *SnapshotsType `form:"type,omitempty" json:"type,omitempty"`
+
+	// Limit Maximum snapshots to return
+	Limit *SnapshotsLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Pagination offset
+	Offset *SnapshotsOffset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Sort Sort field for results
+	Sort *GetStoragesStorageNodeSnapshotsParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Order Sort order
+	Order *GetStoragesStorageNodeSnapshotsParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// GetStoragesStorageNodeSnapshotsParamsSort defines parameters for GetStoragesStorageNodeSnapshots.
+type GetStoragesStorageNodeSnapshotsParamsSort string
+
+// GetStoragesStorageNodeSnapshotsParamsOrder defines parameters for GetStoragesStorageNodeSnapshots.
+type GetStoragesStorageNodeSnapshotsParamsOrder string
+
+// GetStoragesStorageNodeSnapshotsPathParams defines parameters for GetStoragesStorageNodeSnapshotsPath.
+type GetStoragesStorageNodeSnapshotsPathParams struct {
+	// Type Filter snapshots by type (optional, can repeat for multiple types)
+	Type *SnapshotsType `form:"type,omitempty" json:"type,omitempty"`
+
+	// Limit Maximum snapshots to return
+	Limit *SnapshotsLimit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Offset Pagination offset
+	Offset *SnapshotsOffset `form:"offset,omitempty" json:"offset,omitempty"`
+
+	// Sort Sort field for results
+	Sort *GetStoragesStorageNodeSnapshotsPathParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Order Sort order
+	Order *GetStoragesStorageNodeSnapshotsPathParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// GetStoragesStorageNodeSnapshotsPathParamsSort defines parameters for GetStoragesStorageNodeSnapshotsPath.
+type GetStoragesStorageNodeSnapshotsPathParamsSort string
+
+// GetStoragesStorageNodeSnapshotsPathParamsOrder defines parameters for GetStoragesStorageNodeSnapshotsPath.
+type GetStoragesStorageNodeSnapshotsPathParamsOrder string
 
 // GetStoragesStorageNodesParams defines parameters for GetStoragesStorageNodes.
 type GetStoragesStorageNodesParams struct {
@@ -355,6 +535,60 @@ type PostStoragesStorageNodesPathMultipartBody struct {
 	// Name Optional custom filename (defaults to uploaded filename)
 	Name *string `json:"name,omitempty"`
 }
+
+// GetStoragesStorageSnapshotNodesSnapshotParams defines parameters for GetStoragesStorageSnapshotNodesSnapshot.
+type GetStoragesStorageSnapshotNodesSnapshotParams struct {
+	// Type Filter children by type (for directories)
+	Type *GetNodesType `form:"type,omitempty" json:"type,omitempty"`
+
+	// Filter Filename pattern (glob-style, e.g., *.pdf)
+	Filter *GetNodesFilter `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Children Include children in response (for directories)
+	Children *GetNodesChildren `form:"children,omitempty" json:"children,omitempty"`
+
+	// Sort Sort field for children
+	Sort *GetStoragesStorageSnapshotNodesSnapshotParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Order Sort order
+	Order *GetStoragesStorageSnapshotNodesSnapshotParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// GetStoragesStorageSnapshotNodesSnapshotParamsSort defines parameters for GetStoragesStorageSnapshotNodesSnapshot.
+type GetStoragesStorageSnapshotNodesSnapshotParamsSort string
+
+// GetStoragesStorageSnapshotNodesSnapshotParamsOrder defines parameters for GetStoragesStorageSnapshotNodesSnapshot.
+type GetStoragesStorageSnapshotNodesSnapshotParamsOrder string
+
+// GetStoragesStorageSnapshotNodesSnapshotPathParams defines parameters for GetStoragesStorageSnapshotNodesSnapshotPath.
+type GetStoragesStorageSnapshotNodesSnapshotPathParams struct {
+	// Type Filter children by type (for directories)
+	Type *GetNodesType `form:"type,omitempty" json:"type,omitempty"`
+
+	// Filter Filename pattern (glob-style, e.g., *.pdf)
+	Filter *GetNodesFilter `form:"filter,omitempty" json:"filter,omitempty"`
+
+	// Search Search query - searches recursively from this path
+	Search *GetNodesSearch `form:"search,omitempty" json:"search,omitempty"`
+
+	// Children Include children in response (for directories)
+	Children *GetNodesChildren `form:"children,omitempty" json:"children,omitempty"`
+
+	// Download Set Content-Disposition to attachment (for files)
+	Download *GetNodesDownload `form:"download,omitempty" json:"download,omitempty"`
+
+	// Sort Sort field for children
+	Sort *GetStoragesStorageSnapshotNodesSnapshotPathParamsSort `form:"sort,omitempty" json:"sort,omitempty"`
+
+	// Order Sort order
+	Order *GetStoragesStorageSnapshotNodesSnapshotPathParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+}
+
+// GetStoragesStorageSnapshotNodesSnapshotPathParamsSort defines parameters for GetStoragesStorageSnapshotNodesSnapshotPath.
+type GetStoragesStorageSnapshotNodesSnapshotPathParamsSort string
+
+// GetStoragesStorageSnapshotNodesSnapshotPathParamsOrder defines parameters for GetStoragesStorageSnapshotNodesSnapshotPath.
+type GetStoragesStorageSnapshotNodesSnapshotPathParamsOrder string
 
 // PostStoragesStorageArchivesJSONRequestBody defines body for PostStoragesStorageArchives for application/json ContentType.
 type PostStoragesStorageArchivesJSONRequestBody PostStoragesStorageArchivesJSONBody
@@ -465,6 +699,12 @@ type ServerInterface interface {
 	// Move nodes to a new location
 	// (POST /storages/{storage}/moves)
 	PostStoragesStorageMoves(w http.ResponseWriter, r *http.Request, storage Storage)
+	// Get snapshots at storage root
+	// (GET /storages/{storage}/node-snapshots)
+	GetStoragesStorageNodeSnapshots(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageNodeSnapshotsParams)
+	// Get snapshots for a node
+	// (GET /storages/{storage}/node-snapshots/{path...})
+	GetStoragesStorageNodeSnapshotsPath(w http.ResponseWriter, r *http.Request, storage Storage, path string, params GetStoragesStorageNodeSnapshotsPathParams)
 	// Get storage root information or content
 	// (GET /storages/{storage}/nodes)
 	GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageNodesParams)
@@ -483,6 +723,12 @@ type ServerInterface interface {
 	// Create a new child node
 	// (POST /storages/{storage}/nodes/{path...})
 	PostStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request, storage Storage, path NodePath)
+	// Get storage root as it was in a snapshot
+	// (GET /storages/{storage}/snapshot-nodes/{snapshot})
+	GetStoragesStorageSnapshotNodesSnapshot(w http.ResponseWriter, r *http.Request, storage Storage, snapshot string, params GetStoragesStorageSnapshotNodesSnapshotParams)
+	// Get node as it was in a snapshot
+	// (GET /storages/{storage}/snapshot-nodes/{snapshot}/{path...})
+	GetStoragesStorageSnapshotNodesSnapshotPath(w http.ResponseWriter, r *http.Request, storage Storage, snapshot string, path string, params GetStoragesStorageSnapshotNodesSnapshotPathParams)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -655,6 +901,151 @@ func (siw *ServerInterfaceWrapper) PostStoragesStorageMoves(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostStoragesStorageMoves(w, r, storage)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetStoragesStorageNodeSnapshots operation middleware
+func (siw *ServerInterfaceWrapper) GetStoragesStorageNodeSnapshots(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetStoragesStorageNodeSnapshotsParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sort", r.URL.Query(), &params.Sort)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "order", r.URL.Query(), &params.Order)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStoragesStorageNodeSnapshots(w, r, storage, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetStoragesStorageNodeSnapshotsPath operation middleware
+func (siw *ServerInterfaceWrapper) GetStoragesStorageNodeSnapshotsPath(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "path..." -------------
+	var path string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "path", r.PathValue("path"), &path, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path...", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetStoragesStorageNodeSnapshotsPathParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "limit", r.URL.Query(), &params.Limit)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "offset" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "offset", r.URL.Query(), &params.Offset)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "offset", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sort", r.URL.Query(), &params.Sort)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "order", r.URL.Query(), &params.Order)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStoragesStorageNodeSnapshotsPath(w, r, storage, path, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -979,6 +1370,185 @@ func (siw *ServerInterfaceWrapper) PostStoragesStorageNodesPath(w http.ResponseW
 	handler.ServeHTTP(w, r)
 }
 
+// GetStoragesStorageSnapshotNodesSnapshot operation middleware
+func (siw *ServerInterfaceWrapper) GetStoragesStorageSnapshotNodesSnapshot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "snapshot" -------------
+	var snapshot string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "snapshot", r.PathValue("snapshot"), &snapshot, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "snapshot", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetStoragesStorageSnapshotNodesSnapshotParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "filter", r.URL.Query(), &params.Filter)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "children" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "children", r.URL.Query(), &params.Children)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "children", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sort", r.URL.Query(), &params.Sort)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "order", r.URL.Query(), &params.Order)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStoragesStorageSnapshotNodesSnapshot(w, r, storage, snapshot, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetStoragesStorageSnapshotNodesSnapshotPath operation middleware
+func (siw *ServerInterfaceWrapper) GetStoragesStorageSnapshotNodesSnapshotPath(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+
+	// ------------- Path parameter "storage" -------------
+	var storage Storage
+
+	err = runtime.BindStyledParameterWithOptions("simple", "storage", r.PathValue("storage"), &storage, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "storage", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "snapshot" -------------
+	var snapshot string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "snapshot", r.PathValue("snapshot"), &snapshot, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "snapshot", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "path..." -------------
+	var path string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "path", r.PathValue("path"), &path, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "path...", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetStoragesStorageSnapshotNodesSnapshotPathParams
+
+	// ------------- Optional query parameter "type" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "type", r.URL.Query(), &params.Type)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "type", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "filter" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "filter", r.URL.Query(), &params.Filter)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "filter", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "search" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "search", r.URL.Query(), &params.Search)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "search", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "children" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "children", r.URL.Query(), &params.Children)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "children", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "download" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "download", r.URL.Query(), &params.Download)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "download", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "sort", r.URL.Query(), &params.Sort)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "order" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "order", r.URL.Query(), &params.Order)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStoragesStorageSnapshotNodesSnapshotPath(w, r, storage, snapshot, path, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -1105,12 +1675,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/archives/{path}", wrapper.PostStoragesStorageArchivesPath)
 	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/copies", wrapper.PostStoragesStorageCopies)
 	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/moves", wrapper.PostStoragesStorageMoves)
+	m.HandleFunc("GET "+options.BaseURL+"/storages/{storage}/node-snapshots", wrapper.GetStoragesStorageNodeSnapshots)
+	m.HandleFunc("GET "+options.BaseURL+"/storages/{storage}/node-snapshots/{path...}", wrapper.GetStoragesStorageNodeSnapshotsPath)
 	m.HandleFunc("GET "+options.BaseURL+"/storages/{storage}/nodes", wrapper.GetStoragesStorageNodes)
 	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/nodes", wrapper.PostStoragesStorageNodes)
 	m.HandleFunc("DELETE "+options.BaseURL+"/storages/{storage}/nodes/{path...}", wrapper.DeleteStoragesStorageNodesPath)
 	m.HandleFunc("GET "+options.BaseURL+"/storages/{storage}/nodes/{path...}", wrapper.GetStoragesStorageNodesPath)
 	m.HandleFunc("PATCH "+options.BaseURL+"/storages/{storage}/nodes/{path...}", wrapper.PatchStoragesStorageNodesPath)
 	m.HandleFunc("POST "+options.BaseURL+"/storages/{storage}/nodes/{path...}", wrapper.PostStoragesStorageNodesPath)
+	m.HandleFunc("GET "+options.BaseURL+"/storages/{storage}/snapshot-nodes/{snapshot}", wrapper.GetStoragesStorageSnapshotNodesSnapshot)
+	m.HandleFunc("GET "+options.BaseURL+"/storages/{storage}/snapshot-nodes/{snapshot}/{path...}", wrapper.GetStoragesStorageSnapshotNodesSnapshotPath)
 
 	return m
 }

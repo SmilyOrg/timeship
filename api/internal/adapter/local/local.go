@@ -14,7 +14,8 @@ const adapterName = "local"
 
 // Adapter implements adapter interfaces for local filesystem
 type Adapter struct {
-	root *os.Root
+	root                *os.Root
+	zfsSnapshotProvider *ZFSSnapshotProvider
 }
 
 // New creates a new local filesystem adapter
@@ -26,7 +27,8 @@ func New(rootPath string) (*Adapter, error) {
 	}
 
 	return &Adapter{
-		root: root,
+		root:                root,
+		zfsSnapshotProvider: NewZFSSnapshotProvider(rootPath),
 	}, nil
 }
 
@@ -147,4 +149,29 @@ func (a *Adapter) DirectoryExists(vfPath string) (bool, error) {
 	}
 
 	return info.IsDir(), nil
+}
+
+// GetAvailableSnapshotTypes implements adapter.SnapshotProvider
+func (a *Adapter) GetAvailableSnapshotTypes() []string {
+	return a.zfsSnapshotProvider.GetAvailableSnapshotTypes()
+}
+
+// GetSnapshots implements adapter.SnapshotProvider
+func (a *Adapter) GetSnapshots(path string) ([]adapter.Snapshot, error) {
+	return a.zfsSnapshotProvider.GetSnapshots(path)
+}
+
+// GetSnapshotsOfType implements adapter.SnapshotProvider
+func (a *Adapter) GetSnapshotsOfType(path string, snapshotType string) ([]adapter.Snapshot, error) {
+	return a.zfsSnapshotProvider.GetSnapshotsOfType(path, snapshotType)
+}
+
+// ReadSnapshotFile implements adapter.SnapshotProvider
+func (a *Adapter) ReadSnapshotFile(path string, snapshotID string) ([]byte, error) {
+	return a.zfsSnapshotProvider.ReadSnapshotFile(path, snapshotID)
+}
+
+// ListSnapshotContents implements adapter.SnapshotProvider
+func (a *Adapter) ListSnapshotContents(path string, snapshotID string) ([]adapter.FileNode, error) {
+	return a.zfsSnapshotProvider.ListSnapshotContents(path, snapshotID)
 }

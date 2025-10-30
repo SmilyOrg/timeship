@@ -23,6 +23,8 @@ tags:
     description: Storage backend discovery and management
   - name: Nodes
     description: Unified file and directory operations
+  - name: Snapshots
+    description: Point-in-time snapshot browsing
   - name: Moves
     description: Move operations on nodes
   - name: Copies
@@ -235,6 +237,81 @@ components:
           description: Human-readable error message
           example: 'Invalid node name.'
 
+    SnapshotType:
+      type: string
+      enum: [zfs, git, borg, restic]
+      description: Snapshot backend type
+      
+    Snapshot:
+      type: object
+      description: |
+        Point-in-time snapshot of a file or directory.
+        Snapshot ID format: "type:backend-id" (e.g., "zfs:tank@daily-2024-10-28")
+      required:
+        - id
+        - type
+        - timestamp
+      properties:
+        id:
+          type: string
+          description: |
+            Unique identifier for this snapshot in format "type:backend-id"
+            Used in snapshot-nodes endpoint to reference this snapshot
+          example: "zfs:tank@daily-2024-10-28"
+        type:
+          $ref: '#/components/schemas/SnapshotType'
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp when snapshot was created
+          example: 1698364800
+        name:
+          type: string
+          description: Human-readable name/label for snapshot
+          example: "daily-2024-10-28"
+        size:
+          type: integer
+          format: int64
+          description: Size of the node in this snapshot (file size or directory size)
+        metadata:
+          type: object
+          description: Backend-specific metadata
+          additionalProperties: true
+          example:
+            zfs_dataset: "tank/documents"
+            pool: "tank"
+            compressed: true
+            
+    NodeSnapshotsList:
+      type: object
+      description: |
+        Response for node-snapshots endpoint.
+        Lists all snapshots available for a specific node.
+      required:
+        - storage
+        - path
+        - snapshots
+      properties:
+        storage:
+          type: string
+          description: Storage adapter identifier
+          example: "local"
+        path:
+          type: string
+          description: Path of the node (relative to storage root, empty string for root)
+          example: "documents/report.pdf"
+        snapshots:
+          type: array
+          description: List of snapshots for this node, ordered by timestamp (newest first by default)
+          items:
+            $ref: '#/components/schemas/Snapshot'
+        available_types:
+          type: array
+          description: Available snapshot types for this storage
+          items:
+            $ref: '#/components/schemas/SnapshotType'
+          example: ["zfs"]
+
   parameters:
     storage:
       name: storage
@@ -334,6 +411,50 @@ components:
         type: boolean
         default: true
       description: Delete recursively (for directories)
+      
+    snapshotsType:
+      name: type
+      in: query
+      schema:
+        $ref: '#/components/schemas/SnapshotType'
+      description: Filter snapshots by type (optional, can repeat for multiple types)
+      
+    snapshotsLimit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        default: 50
+        minimum: 1
+        maximum: 500
+      description: Maximum snapshots to return
+      
+    snapshotsOffset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        default: 0
+        minimum: 0
+      description: Pagination offset
+      
+    snapshotsSort:
+      name: sort
+      in: query
+      schema:
+        type: string
+        enum: [timestamp, size, name]
+        default: timestamp
+      description: Sort field for results
+      
+    snapshotsOrder:
+      name: order
+      in: query
+      schema:
+        type: string
+        enum: [asc, desc]
+        default: desc
+      description: Sort order
       
   responses:
     nodeSuccess200:
@@ -1037,6 +1158,229 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
         '400':
           description: Invalid archive or extraction failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /storages/{storage}/node-snapshots:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      
+    get:
+      summary: Get snapshots at storage root
+      description: |
+        List all available snapshots for the storage root.
+        This is a convenience endpoint for accessing snapshots at the root without a path parameter.
+      tags: [Snapshots]
+      parameters:
+        - $ref: '#/components/parameters/snapshotsType'
+        - $ref: '#/components/parameters/snapshotsLimit'
+        - $ref: '#/components/parameters/snapshotsOffset'
+        - $ref: '#/components/parameters/snapshotsSort'
+        - $ref: '#/components/parameters/snapshotsOrder'
+      responses:
+        '200':
+          description: List of snapshots for the storage root
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeSnapshotsList'
+              example:
+                storage: local
+                path: ""
+                snapshots:
+                  - id: "zfs:tank@daily-2024-10-28"
+                    type: "zfs"
+                    timestamp: 1698364800
+                    name: "daily-2024-10-28"
+                    size: 5242880
+                    metadata:
+                      zfs_dataset: "tank"
+                      pool: "tank"
+                  - id: "zfs:tank@daily-2024-10-27"
+                    type: "zfs"
+                    timestamp: 1698278400
+                    name: "daily-2024-10-27"
+                    size: 5242880
+                    metadata:
+                      zfs_dataset: "tank"
+                      pool: "tank"
+                available_types: ["zfs"]
+        '404':
+          description: Storage not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /storages/{storage}/node-snapshots/{path...}:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      - name: path...
+        in: path
+        required: true
+        schema:
+          type: string
+        style: simple
+        allowReserved: true
+        description: |
+          Path to the node to list snapshots for (can contain slashes).
+          Path is relative to storage root.
+        examples:
+          file:
+            value: "documents/report.pdf"
+            summary: File path
+          directory:
+            value: "documents/reports"
+            summary: Directory path
+      
+    get:
+      summary: Get snapshots for a node
+      description: |
+        List all available snapshots for a specific file or directory.
+        Snapshots show point-in-time versions of the node from various backends.
+      tags: [Snapshots]
+      parameters:
+        - $ref: '#/components/parameters/snapshotsType'
+        - $ref: '#/components/parameters/snapshotsLimit'
+        - $ref: '#/components/parameters/snapshotsOffset'
+        - $ref: '#/components/parameters/snapshotsSort'
+        - $ref: '#/components/parameters/snapshotsOrder'
+      responses:
+        '200':
+          description: List of snapshots for the node
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NodeSnapshotsList'
+              examples:
+                file_snapshots:
+                  summary: Snapshots for a file
+                  value:
+                    storage: local
+                    path: "documents/report.pdf"
+                    snapshots:
+                      - id: "zfs:tank@daily-2024-10-28"
+                        type: "zfs"
+                        timestamp: 1698364800
+                        name: "daily-2024-10-28"
+                        size: 1048576
+                        metadata:
+                          zfs_dataset: "tank/documents"
+                          pool: "tank"
+                      - id: "zfs:tank@daily-2024-10-27"
+                        type: "zfs"
+                        timestamp: 1698278400
+                        name: "daily-2024-10-27"
+                        size: 1048576
+                        metadata:
+                          zfs_dataset: "tank/documents"
+                          pool: "tank"
+                    available_types: ["zfs"]
+                dir_snapshots:
+                  summary: Snapshots for a directory
+                  value:
+                    storage: local
+                    path: "documents"
+                    snapshots:
+                      - id: "zfs:tank@daily-2024-10-28"
+                        type: "zfs"
+                        timestamp: 1698364800
+                        name: "daily-2024-10-28"
+                        metadata:
+                          zfs_dataset: "tank"
+                          pool: "tank"
+                          file_count: 142
+                    available_types: ["zfs"]
+        '404':
+          description: Node or storage not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /storages/{storage}/snapshot-nodes/{snapshot}:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      - name: snapshot
+        in: path
+        required: true
+        schema:
+          type: string
+        description: |
+          Snapshot identifier in format "type:backend-id"
+          (e.g., "zfs:tank@daily-2024-10-28")
+        example: "zfs:tank@daily-2024-10-28"
+      
+    get:
+      summary: Get storage root as it was in a snapshot
+      description: |
+        Get information about the storage root as it existed in a specific snapshot.
+        This is a convenience endpoint for accessing the snapshot root without a path parameter.
+      tags: [Snapshots]
+      parameters:
+        - $ref: '#/components/parameters/getNodesType'
+        - $ref: '#/components/parameters/getNodesFilter'
+        - $ref: '#/components/parameters/getNodesChildren'
+        - $ref: '#/components/parameters/getNodesSort'
+        - $ref: '#/components/parameters/getNodesOrder'
+      responses:
+        '200':
+          $ref: '#/components/responses/nodeSuccess200'
+        '404':
+          $ref: '#/components/responses/nodeNotFound404'
+
+  /storages/{storage}/snapshot-nodes/{snapshot}/{path...}:
+    parameters:
+      - $ref: '#/components/parameters/storage'
+      - name: snapshot
+        in: path
+        required: true
+        schema:
+          type: string
+        description: |
+          Snapshot identifier in format "type:backend-id"
+          (e.g., "zfs:tank@daily-2024-10-28")
+        example: "zfs:tank@daily-2024-10-28"
+      - name: path...
+        in: path
+        required: true
+        schema:
+          type: string
+        style: simple
+        allowReserved: true
+        description: |
+          Path to the node within the snapshot (can contain slashes).
+          Path is relative to storage root.
+      
+    get:
+      summary: Get node as it was in a snapshot
+      description: |
+        Get information about a node, or its content if it's a file, as it existed in a specific snapshot.
+        Behaves identically to the nodes endpoint but returns data from the snapshot's point in time.
+        
+        For directories: Returns node metadata and lists children as they existed in that snapshot.
+        For files: Returns file content from that snapshot point in time.
+        
+        Content negotiation:
+        - Accept: application/json → Returns node metadata
+        - Accept: application/octet-stream → Returns file content (binary)
+        - Accept: text/* → Returns file content (text)
+      tags: [Snapshots]
+      parameters:
+        - $ref: '#/components/parameters/getNodesType'
+        - $ref: '#/components/parameters/getNodesFilter'
+        - $ref: '#/components/parameters/getNodesSearch'
+        - $ref: '#/components/parameters/getNodesChildren'
+        - $ref: '#/components/parameters/getNodesDownload'
+        - $ref: '#/components/parameters/getNodesSort'
+        - $ref: '#/components/parameters/getNodesOrder'
+      responses:
+        '200':
+          $ref: '#/components/responses/nodeSuccess200'
+        '404':
+          description: Snapshot not found or node did not exist in snapshot
           content:
             application/json:
               schema:

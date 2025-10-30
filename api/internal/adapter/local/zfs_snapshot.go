@@ -1,0 +1,287 @@
+package local
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
+
+	"github.com/smilyorg/timeship/api/internal/adapter"
+)
+
+// ZFSSnapshotProvider implements the SnapshotProvider interface for ZFS filesystems
+type ZFSSnapshotProvider struct {
+	rootDir string
+}
+
+// NewZFSSnapshotProvider creates a new ZFS snapshot provider
+func NewZFSSnapshotProvider(rootDir string) *ZFSSnapshotProvider {
+	return &ZFSSnapshotProvider{
+		rootDir: rootDir,
+	}
+}
+
+// GetAvailableSnapshotTypes returns the types of snapshots this provider supports
+func (z *ZFSSnapshotProvider) GetAvailableSnapshotTypes() []string {
+	return []string{"zfs"}
+}
+
+// findZFSRoot traverses up from the given path looking for a .zfs directory
+// Returns the path to the ZFS root (where .zfs/snapshot exists) or empty string if not found
+func (z *ZFSSnapshotProvider) findZFSRoot(nodePath string) (string, error) {
+	// Convert to absolute path
+	currentPath := nodePath
+	if !filepath.IsAbs(currentPath) {
+		currentPath = filepath.Join(z.rootDir, currentPath)
+	}
+
+	// Make sure we're working with clean paths
+	currentPath = filepath.Clean(currentPath)
+
+	// Start from the given path and traverse up
+	for {
+		zfsSnapshotDir := filepath.Join(currentPath, ".zfs", "snapshot")
+		stat, err := os.Stat(zfsSnapshotDir)
+		if err == nil && stat.IsDir() {
+			// Found it!
+			return currentPath, nil
+		}
+
+		// Move up one directory
+		parent := filepath.Dir(currentPath)
+		if parent == currentPath {
+			// We've reached the root and didn't find .zfs
+			break
+		}
+		currentPath = parent
+	}
+
+	// Not found
+	return "", nil
+}
+
+// GetSnapshots returns all ZFS snapshots available for a given path
+func (z *ZFSSnapshotProvider) GetSnapshots(path string) ([]adapter.Snapshot, error) {
+	return z.GetSnapshotsOfType(path, "zfs")
+}
+
+// GetSnapshotsOfType returns ZFS snapshots for a given path
+func (z *ZFSSnapshotProvider) GetSnapshotsOfType(path string, snapshotType string) ([]adapter.Snapshot, error) {
+	if snapshotType != "zfs" {
+		return []adapter.Snapshot{}, nil
+	}
+
+	// Strip the adapter prefix from the path if present
+	fsPath := adapter.StripPrefix(path, "local")
+
+	// Find the ZFS root
+	zfsRoot, err := z.findZFSRoot(fsPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if zfsRoot == "" {
+		// No ZFS filesystem found
+		return []adapter.Snapshot{}, nil
+	}
+
+	// List snapshots in .zfs/snapshot
+	snapshotDir := filepath.Join(zfsRoot, ".zfs", "snapshot")
+	entries, err := os.ReadDir(snapshotDir)
+	if err != nil {
+		return nil, err
+	}
+
+	snapshots := []adapter.Snapshot{}
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		// Get file info to retrieve modification time
+		info, err := entry.Info()
+		if err != nil {
+			continue // Skip entries we can't stat
+		}
+
+		// Parse the snapshot directory info to get timestamp
+		// Format is typically like: auto-daily-2025-10-28_00-00, auto-hourly-2025-10-30_01-00, etc.
+		modTime := info.ModTime()
+		timestamp := adapter.TimeToTimestamp(modTime)
+
+		snapshot := adapter.Snapshot{
+			ID:        fmt.Sprintf("zfs:%s", entry.Name()),
+			Type:      "zfs",
+			Timestamp: timestamp,
+			Name:      entry.Name(),
+			Size:      -1, // ZFS snapshot size is not easily determinable
+			Metadata: adapter.SnapshotMetadata{
+				"zfs_root": zfsRoot,
+			},
+		}
+
+		snapshots = append(snapshots, snapshot)
+	}
+
+	// Sort by timestamp in descending order (newest first)
+	sort.Slice(snapshots, func(i, j int) bool {
+		return snapshots[i].Timestamp > snapshots[j].Timestamp
+	})
+
+	return snapshots, nil
+}
+
+// getSnapshotPath extracts the snapshot path from the snapshot ID
+// Input format: "zfs:snapshot-name"
+// Returns just the "snapshot-name" part
+func (z *ZFSSnapshotProvider) getSnapshotPath(snapshotID string) (string, error) {
+	parts := strings.SplitN(snapshotID, ":", 2)
+	if len(parts) != 2 || parts[0] != "zfs" {
+		return "", fmt.Errorf("invalid snapshot ID format: %s", snapshotID)
+	}
+	return parts[1], nil
+}
+
+// ReadSnapshotFile reads a file from a snapshot
+func (z *ZFSSnapshotProvider) ReadSnapshotFile(path string, snapshotID string) ([]byte, error) {
+	// Strip the adapter prefix from the path if present
+	fsPath := adapter.StripPrefix(path, "local")
+	if fsPath == "." {
+		fsPath = ""
+	}
+
+	// Convert to absolute path relative to rootDir
+	var absPath string
+	if filepath.IsAbs(fsPath) {
+		absPath = fsPath
+	} else {
+		absPath = filepath.Join(z.rootDir, fsPath)
+	}
+	absPath = filepath.Clean(absPath)
+
+	// Find the ZFS root
+	zfsRoot, err := z.findZFSRoot(absPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if zfsRoot == "" {
+		return nil, fmt.Errorf("ZFS root not found for path: %s", path)
+	}
+
+	// Get the snapshot name from the snapshot ID
+	snapshotName, err := z.getSnapshotPath(snapshotID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate the relative path from the ZFS root to the requested file
+	relPath, err := filepath.Rel(zfsRoot, absPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct the path to the file in the snapshot
+	snapshotPath := filepath.Join(zfsRoot, ".zfs", "snapshot", snapshotName, relPath)
+
+	// Read the file
+	return os.ReadFile(snapshotPath)
+}
+
+// ListSnapshotContents lists the contents of a directory in a snapshot
+func (z *ZFSSnapshotProvider) ListSnapshotContents(path string, snapshotID string) ([]adapter.FileNode, error) {
+	// Strip the adapter prefix from the path if present
+	fsPath := adapter.StripPrefix(path, "local")
+	if fsPath == "." {
+		fsPath = ""
+	}
+
+	// Convert to absolute path relative to rootDir
+	var absPath string
+	if filepath.IsAbs(fsPath) {
+		absPath = fsPath
+	} else {
+		absPath = filepath.Join(z.rootDir, fsPath)
+	}
+	absPath = filepath.Clean(absPath)
+
+	// Find the ZFS root
+	zfsRoot, err := z.findZFSRoot(absPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if zfsRoot == "" {
+		return nil, fmt.Errorf("ZFS root not found for path: %s", path)
+	}
+
+	// Get the snapshot name from the snapshot ID
+	snapshotName, err := z.getSnapshotPath(snapshotID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate the relative path from the ZFS root to the requested directory
+	relPath, err := filepath.Rel(zfsRoot, absPath)
+	if err != nil {
+		return nil, err
+	}
+
+	// Construct the path to the directory in the snapshot
+	snapshotPath := filepath.Join(zfsRoot, ".zfs", "snapshot", snapshotName, relPath)
+
+	// Read the directory
+	entries, err := os.ReadDir(snapshotPath)
+	if err != nil {
+		return nil, err
+	}
+
+	nodes := []adapter.FileNode{}
+	for _, entry := range entries {
+		// Get file info to retrieve size and modification time
+		info, err := entry.Info()
+		if err != nil {
+			continue // Skip entries we can't stat
+		}
+
+		// Calculate the path with adapter prefix
+		// Construct the display path relative to the rootDir
+		displayPath := filepath.Join(fsPath, entry.Name())
+		if displayPath == "." {
+			displayPath = entry.Name()
+		}
+		adapterPath := adapter.AddPrefix(displayPath, "local")
+
+		fileType := "file"
+		if entry.IsDir() {
+			fileType = "dir"
+		}
+
+		node := adapter.FileNode{
+			Path:         adapterPath,
+			Type:         fileType,
+			Basename:     entry.Name(),
+			Size:         info.Size(),
+			LastModified: info.ModTime().Unix(),
+		}
+
+		// Set extension for files
+		if fileType == "file" {
+			ext := filepath.Ext(entry.Name())
+			if ext != "" {
+				node.Extension = ext[1:] // Remove the leading dot
+			}
+		}
+
+		// Try to get MIME type for files
+		if fileType == "file" {
+			// For now, we'll skip MIME type detection
+			// This could be enhanced with a library like github.com/gabriel-vasile/mimetype
+		}
+
+		nodes = append(nodes, node)
+	}
+
+	return nodes, nil
+}

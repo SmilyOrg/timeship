@@ -32,6 +32,32 @@ type FileNode struct {
 	MimeType     string
 }
 
+// Snapshot represents a point-in-time snapshot of a node
+type Snapshot struct {
+	// ID is the unique identifier for this snapshot in format "type:backend-id"
+	// e.g., "zfs:tank@daily-2024-10-28"
+	ID string
+
+	// Type is the snapshot backend type (e.g., "zfs", "git", "borg")
+	Type string
+
+	// Timestamp is the Unix timestamp when the snapshot was created
+	Timestamp int64
+
+	// Name is the human-readable name/label for the snapshot
+	Name string
+
+	// Size is the size of the node in this snapshot (file size or directory size)
+	// May be -1 if unknown
+	Size int64
+
+	// Metadata contains backend-specific metadata
+	Metadata SnapshotMetadata
+}
+
+// SnapshotMetadata represents backend-specific metadata for a snapshot
+type SnapshotMetadata map[string]interface{}
+
 // Adapter is a marker interface for storage adapters
 // All methods are optional - adapters implement only the capabilities they support
 //

@@ -4,7 +4,10 @@ import App from './App.vue'
 
 import VueFinder from 'vuefinder/dist/vuefinder'
 import 'vuefinder/dist/style.css'
+import { VueQueryPlugin } from '@tanstack/vue-query'
 import '@picocss/pico/css/pico.classless.blue.css'
+
+
 
 const app = createApp(App)
 
@@ -12,6 +15,8 @@ const app = createApp(App)
 // However, if you want to support multiple languages and customize the localization, 
 // you can import the language files manually during component registration.
 app.use(VueFinder)
+
+app.use(VueQueryPlugin)
 
 app.mount('#app')
  

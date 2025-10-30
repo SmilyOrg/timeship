@@ -1,5 +1,7 @@
 <template>
-  <div>
+  <div class="browser">
+    <snapshot-list>
+    </snapshot-list>
     <vue-finder
       class="finder"
       id="vf"
@@ -9,6 +11,8 @@
 </template>
 
 <script setup lang="ts">
+import SnapshotList from './SnapshotList.vue';
+
 
 const request: {
   baseUrl: string;
@@ -31,10 +35,6 @@ const request: {
         nodePath = nodePath.slice(prefix.length);
       }
 
-      const setUrlForNode = (base: string) => {
-        req.url = nodePath ? `${base}/${nodePath}` : base;
-      };
-
       const cleanParams = () => {
         delete req.params.q;
         delete req.params.adapter;
@@ -44,7 +44,7 @@ const request: {
       switch (operation) {
         case 'index': {
           const base = `${request.baseUrl}/storages/${adapter}/nodes`;
-          setUrlForNode(base);
+          req.url = nodePath ? `${base}/${nodePath}` : base;
           cleanParams();
           break;
         }
@@ -69,6 +69,14 @@ const request: {
 </script>
 
 <style scoped>
+.browser {
+  display: flex;
+  flex-direction: row;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+}
+
 .finder {
   width: 100%;
 }
