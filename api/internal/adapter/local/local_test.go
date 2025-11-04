@@ -263,10 +263,17 @@ func TestPathTraversalPrevention(t *testing.T) {
 		}
 	})
 
-	t.Run("prevent absolute path", func(t *testing.T) {
-		_, err := a.FileExists(url.URL{Scheme: "local", Path: "/etc/passwd"})
-		if err == nil {
-			t.Error("expected error when trying to use absolute path")
+	t.Run("absolute-looking paths are safely relative to root", func(t *testing.T) {
+		// Paths like "/etc/passwd" are interpreted as "etc/passwd" relative to the storage root
+		// This is safe because os.OpenRoot prevents access outside the root directory
+		exists, err := a.FileExists(url.URL{Scheme: "local", Path: "/etc/passwd"})
+		if err != nil {
+			t.Errorf("unexpected error: %v", err)
+		}
+		// Should return false (doesn't exist) but no error, because it's safely looking
+		// for "etc/passwd" relative to tmpDir, not the system /etc/passwd
+		if exists {
+			t.Error("etc/passwd should not exist in temp directory")
 		}
 	})
 }

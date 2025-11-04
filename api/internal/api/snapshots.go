@@ -9,21 +9,21 @@ import (
 	"github.com/smilyorg/timeship/api/internal/adapter"
 )
 
-// GetStoragesStorageNodeSnapshots handles getting snapshots at storage root
-func (s *Server) GetStoragesStorageNodeSnapshots(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageNodeSnapshotsParams) {
+// GetStoragesStorageSnapshots handles getting snapshots at storage root
+func (s *Server) GetStoragesStorageSnapshots(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageSnapshotsParams) {
 	// Delegate to the path-based handler with empty path
-	pathParams := GetStoragesStorageNodeSnapshotsPathParams{
+	pathParams := GetStoragesStorageSnapshotsPathParams{
 		Type:   params.Type,
 		Limit:  params.Limit,
 		Offset: params.Offset,
-		Sort:   (*GetStoragesStorageNodeSnapshotsPathParamsSort)(params.Sort),
-		Order:  (*GetStoragesStorageNodeSnapshotsPathParamsOrder)(params.Order),
+		Sort:   (*GetStoragesStorageSnapshotsPathParamsSort)(params.Sort),
+		Order:  (*GetStoragesStorageSnapshotsPathParamsOrder)(params.Order),
 	}
-	s.GetStoragesStorageNodeSnapshotsPath(w, r, storage, "", pathParams)
+	s.GetStoragesStorageSnapshotsPath(w, r, storage, "", pathParams)
 }
 
-// GetStoragesStorageNodeSnapshotsPath handles getting snapshots for a specific node
-func (s *Server) GetStoragesStorageNodeSnapshotsPath(w http.ResponseWriter, r *http.Request, storage Storage, path string, params GetStoragesStorageNodeSnapshotsPathParams) {
+// GetStoragesStorageSnapshotsPath handles getting snapshots for a specific node
+func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.Request, storage Storage, path string, params GetStoragesStorageSnapshotsPathParams) {
 	// Get the storage adapter
 	storageAdapter, err := s.getStorage(string(storage))
 	if err != nil {
@@ -47,7 +47,7 @@ func (s *Server) GetStoragesStorageNodeSnapshotsPath(w http.ResponseWriter, r *h
 	// Create url.URL with adapter prefix
 	vfPath := adapter.AddPrefix(nodePath, string(storage))
 
-	log.Printf("GetStoragesStorageNodeSnapshotsPath: storage=%s, path=%s, vfPath=%s", storage, nodePath, vfPath.String())
+	log.Printf("GetStoragesStorageSnapshotsPath: storage=%s, path=%s, vfPath=%s", storage, nodePath, vfPath.String())
 
 	// Get snapshots from the adapter
 	snapshots, err := snapshotLister.ListSnapshots(vfPath)
@@ -104,49 +104,4 @@ func (s *Server) GetStoragesStorageNodeSnapshotsPath(w http.ResponseWriter, r *h
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
-}
-
-// GetStoragesStorageSnapshotNodesSnapshot handles getting storage root as it was in a snapshot
-func (s *Server) GetStoragesStorageSnapshotNodesSnapshot(w http.ResponseWriter, r *http.Request, storage Storage, snapshot string, params GetStoragesStorageSnapshotNodesSnapshotParams) {
-	// Delegate to the path-based handler with empty path
-	pathParams := GetStoragesStorageSnapshotNodesSnapshotPathParams{
-		Type:     params.Type,
-		Filter:   params.Filter,
-		Children: params.Children,
-		Sort:     (*GetStoragesStorageSnapshotNodesSnapshotPathParamsSort)(params.Sort),
-		Order:    (*GetStoragesStorageSnapshotNodesSnapshotPathParamsOrder)(params.Order),
-	}
-	s.GetStoragesStorageSnapshotNodesSnapshotPath(w, r, storage, snapshot, "", pathParams)
-}
-
-// GetStoragesStorageSnapshotNodesSnapshotPath handles getting node content as it was in a snapshot
-func (s *Server) GetStoragesStorageSnapshotNodesSnapshotPath(w http.ResponseWriter, r *http.Request, storage Storage, snapshot string, path string, params GetStoragesStorageSnapshotNodesSnapshotPathParams) {
-	// Get the storage adapter
-	storageAdapter, err := s.getStorage(string(storage))
-	if err != nil {
-		s.sendError(w, "Storage Not Found", http.StatusNotFound, err.Error(), r.URL.Path)
-		return
-	}
-
-	// Check if adapter supports snapshots
-	_, ok := storageAdapter.(adapter.SnapshotLister)
-	if !ok {
-		s.sendError(w, "Not Supported", http.StatusNotImplemented, "Storage adapter does not support snapshots", r.URL.Path)
-		return
-	}
-
-	// Clean the path - empty path means storage root
-	nodePath := path
-	if nodePath == "/" {
-		nodePath = ""
-	}
-
-	// Create url.URL with adapter prefix
-	_ = adapter.AddPrefix(nodePath, string(storage))
-
-	log.Printf("GetStoragesStorageSnapshotNodesSnapshotPath: storage=%s, snapshot=%s, path=%s", storage, snapshot, nodePath)
-
-	// For now, we'll return "not yet implemented" for browsing snapshots
-	// This requires reading directory/file contents from the snapshot
-	s.sendNotImplemented(w, r)
 }

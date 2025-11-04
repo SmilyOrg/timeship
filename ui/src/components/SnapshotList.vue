@@ -30,7 +30,7 @@ const {
   isError,
   data,
   error
-} = useApi("/storages/local/node-snapshots");
+} = useApi("/storages/local/snapshots");
 
 const snapshots = computed(() => {
   return data.value?.snapshots || [];

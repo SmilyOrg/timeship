@@ -285,7 +285,7 @@ components:
     NodeSnapshotsList:
       type: object
       description: |
-        Response for node-snapshots endpoint.
+        Response for snapshots endpoint.
         Lists all snapshots available for a specific node.
       required:
         - storage
@@ -403,6 +403,16 @@ components:
         enum: [asc, desc]
         default: asc
       description: Sort order
+      
+    getNodesSnapshot:
+      name: snapshot
+      in: query
+      schema:
+        type: string
+      description: |
+        Snapshot identifier in format "type:backend-id" (e.g., "zfs:tank@daily-2024-10-28").
+        When provided, returns the node as it existed in that snapshot.
+      example: "zfs:tank@daily-2024-10-28"
       
     deleteNodesRecursive:
       name: recursive
@@ -619,6 +629,8 @@ paths:
         
         For storage roots: Returns root metadata and lists children.
         
+        When ?snapshot= is provided, returns the node as it existed in that snapshot.
+        
         Content negotiation:
         - Accept: application/json → Returns node metadata
         - Accept: application/octet-stream → Returns file content (binary)
@@ -632,6 +644,7 @@ paths:
         - $ref: '#/components/parameters/getNodesDownload'
         - $ref: '#/components/parameters/getNodesSort'
         - $ref: '#/components/parameters/getNodesOrder'
+        - $ref: '#/components/parameters/getNodesSnapshot'
       responses:
         '200':
           $ref: '#/components/responses/nodeSuccess200'
@@ -696,6 +709,8 @@ paths:
         For directories: Returns node metadata and lists children.
         For files: Returns file content (use Accept header for format).
         
+        When ?snapshot= is provided, returns the node as it existed in that snapshot.
+        
         Content negotiation:
         - Accept: application/json → Returns node metadata
         - Accept: application/octet-stream → Returns file content (binary)
@@ -709,11 +724,16 @@ paths:
         - $ref: '#/components/parameters/getNodesDownload'
         - $ref: '#/components/parameters/getNodesSort'
         - $ref: '#/components/parameters/getNodesOrder'
+        - $ref: '#/components/parameters/getNodesSnapshot'
       responses:
         '200':
           $ref: '#/components/responses/nodeSuccess200'
         '404':
-          $ref: '#/components/responses/nodeNotFound404'
+          description: Node not found or snapshot not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
                 
     post:
       summary: Create a new child node
@@ -1163,7 +1183,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /storages/{storage}/node-snapshots:
+  /storages/{storage}/snapshots:
     parameters:
       - $ref: '#/components/parameters/storage'
       
@@ -1214,7 +1234,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
-  /storages/{storage}/node-snapshots/{path...}:
+  /storages/{storage}/snapshots/{path...}:
     parameters:
       - $ref: '#/components/parameters/storage'
       - name: path...
@@ -1295,92 +1315,6 @@ paths:
                     available_types: ["zfs"]
         '404':
           description: Node or storage not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  /storages/{storage}/snapshot-nodes/{snapshot}:
-    parameters:
-      - $ref: '#/components/parameters/storage'
-      - name: snapshot
-        in: path
-        required: true
-        schema:
-          type: string
-        description: |
-          Snapshot identifier in format "type:backend-id"
-          (e.g., "zfs:tank@daily-2024-10-28")
-        example: "zfs:tank@daily-2024-10-28"
-      
-    get:
-      summary: Get storage root as it was in a snapshot
-      description: |
-        Get information about the storage root as it existed in a specific snapshot.
-        This is a convenience endpoint for accessing the snapshot root without a path parameter.
-      tags: [Snapshots]
-      parameters:
-        - $ref: '#/components/parameters/getNodesType'
-        - $ref: '#/components/parameters/getNodesFilter'
-        - $ref: '#/components/parameters/getNodesChildren'
-        - $ref: '#/components/parameters/getNodesSort'
-        - $ref: '#/components/parameters/getNodesOrder'
-      responses:
-        '200':
-          $ref: '#/components/responses/nodeSuccess200'
-        '404':
-          $ref: '#/components/responses/nodeNotFound404'
-
-  /storages/{storage}/snapshot-nodes/{snapshot}/{path...}:
-    parameters:
-      - $ref: '#/components/parameters/storage'
-      - name: snapshot
-        in: path
-        required: true
-        schema:
-          type: string
-        description: |
-          Snapshot identifier in format "type:backend-id"
-          (e.g., "zfs:tank@daily-2024-10-28")
-        example: "zfs:tank@daily-2024-10-28"
-      - name: path...
-        in: path
-        required: true
-        schema:
-          type: string
-        style: simple
-        allowReserved: true
-        description: |
-          Path to the node within the snapshot (can contain slashes).
-          Path is relative to storage root.
-      
-    get:
-      summary: Get node as it was in a snapshot
-      description: |
-        Get information about a node, or its content if it's a file, as it existed in a specific snapshot.
-        Behaves identically to the nodes endpoint but returns data from the snapshot's point in time.
-        
-        For directories: Returns node metadata and lists children as they existed in that snapshot.
-        For files: Returns file content from that snapshot point in time.
-        
-        Content negotiation:
-        - Accept: application/json → Returns node metadata
-        - Accept: application/octet-stream → Returns file content (binary)
-        - Accept: text/* → Returns file content (text)
-      tags: [Snapshots]
-      parameters:
-        - $ref: '#/components/parameters/getNodesType'
-        - $ref: '#/components/parameters/getNodesFilter'
-        - $ref: '#/components/parameters/getNodesSearch'
-        - $ref: '#/components/parameters/getNodesChildren'
-        - $ref: '#/components/parameters/getNodesDownload'
-        - $ref: '#/components/parameters/getNodesSort'
-        - $ref: '#/components/parameters/getNodesOrder'
-      responses:
-        '200':
-          $ref: '#/components/responses/nodeSuccess200'
-        '404':
-          description: Snapshot not found or node did not exist in snapshot
           content:
             application/json:
               schema:
