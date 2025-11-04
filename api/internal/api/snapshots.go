@@ -38,25 +38,19 @@ func (s *Server) GetStoragesStorageNodeSnapshotsPath(w http.ResponseWriter, r *h
 	}
 
 	// Check if adapter supports snapshots
-	snapshotProvider, ok := storageAdapter.(adapter.SnapshotProvider)
+	snapshotLister, ok := storageAdapter.(adapter.SnapshotLister)
 	if !ok {
 		s.sendError(w, "Not Supported", http.StatusNotImplemented, "Storage adapter does not support snapshots", r.URL.Path)
 		return
 	}
 
-	// Add adapter prefix to the path
+	// Create url.URL with adapter prefix
 	vfPath := adapter.AddPrefix(nodePath, string(storage))
 
-	log.Printf("GetStoragesStorageNodeSnapshotsPath: storage=%s, path=%s, vfPath=%s", storage, nodePath, vfPath)
+	log.Printf("GetStoragesStorageNodeSnapshotsPath: storage=%s, path=%s, vfPath=%s", storage, nodePath, vfPath.String())
 
-	// Get snapshots from the provider
-	var snapshots []adapter.Snapshot
-	if params.Type != nil {
-		snapshots, err = snapshotProvider.GetSnapshotsOfType(vfPath, string(*params.Type))
-	} else {
-		snapshots, err = snapshotProvider.GetSnapshots(vfPath)
-	}
-
+	// Get snapshots from the adapter
+	snapshots, err := snapshotLister.ListSnapshots(vfPath)
 	if err != nil {
 		s.sendError(w, "Error", http.StatusInternalServerError, fmt.Sprintf("Failed to get snapshots: %v", err), r.URL.Path)
 		return
@@ -84,9 +78,6 @@ func (s *Server) GetStoragesStorageNodeSnapshotsPath(w http.ResponseWriter, r *h
 		snapshots = snapshots[:limit]
 	}
 
-	// Get available types
-	availableTypes := snapshotProvider.GetAvailableSnapshotTypes()
-
 	// Convert to API response
 	apiSnapshots := make([]Snapshot, len(snapshots))
 	for i, snap := range snapshots {
@@ -104,16 +95,10 @@ func (s *Server) GetStoragesStorageNodeSnapshotsPath(w http.ResponseWriter, r *h
 		}
 	}
 
-	availableTypesEnum := make([]SnapshotType, len(availableTypes))
-	for i, t := range availableTypes {
-		availableTypesEnum[i] = SnapshotType(t)
-	}
-
 	response := NodeSnapshotsList{
-		Storage:        string(storage),
-		Path:           nodePath,
-		Snapshots:      apiSnapshots,
-		AvailableTypes: &availableTypesEnum,
+		Storage:   string(storage),
+		Path:      nodePath,
+		Snapshots: apiSnapshots,
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -144,7 +129,7 @@ func (s *Server) GetStoragesStorageSnapshotNodesSnapshotPath(w http.ResponseWrit
 	}
 
 	// Check if adapter supports snapshots
-	_, ok := storageAdapter.(adapter.SnapshotProvider)
+	_, ok := storageAdapter.(adapter.SnapshotLister)
 	if !ok {
 		s.sendError(w, "Not Supported", http.StatusNotImplemented, "Storage adapter does not support snapshots", r.URL.Path)
 		return
@@ -156,10 +141,10 @@ func (s *Server) GetStoragesStorageSnapshotNodesSnapshotPath(w http.ResponseWrit
 		nodePath = ""
 	}
 
-	// Add adapter prefix to the path
-	vfPath := adapter.AddPrefix(nodePath, string(storage))
+	// Create url.URL with adapter prefix
+	_ = adapter.AddPrefix(nodePath, string(storage))
 
-	log.Printf("GetStoragesStorageSnapshotNodesSnapshotPath: storage=%s, snapshot=%s, path=%s, vfPath=%s", storage, snapshot, nodePath, vfPath)
+	log.Printf("GetStoragesStorageSnapshotNodesSnapshotPath: storage=%s, snapshot=%s, path=%s", storage, snapshot, nodePath)
 
 	// For now, we'll return "not yet implemented" for browsing snapshots
 	// This requires reading directory/file contents from the snapshot

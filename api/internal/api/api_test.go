@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -23,28 +24,28 @@ type mockAdapterV2 struct {
 	sizeErr     error
 }
 
-func (m *mockAdapterV2) ListContents(path string) ([]adapter.FileNode, error) {
+func (m *mockAdapterV2) ListContents(path url.URL) ([]adapter.FileNode, error) {
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
 	return m.nodes, nil
 }
 
-func (m *mockAdapterV2) MimeType(path string) (string, error) {
+func (m *mockAdapterV2) MimeType(path url.URL) (string, error) {
 	if m.mimeTypeErr != nil {
 		return "", m.mimeTypeErr
 	}
 	return m.mimeType, nil
 }
 
-func (m *mockAdapterV2) FileSize(path string) (int64, error) {
+func (m *mockAdapterV2) FileSize(path url.URL) (int64, error) {
 	if m.sizeErr != nil {
 		return 0, m.sizeErr
 	}
 	return m.size, nil
 }
 
-func (m *mockAdapterV2) ReadStream(path string) (io.ReadCloser, error) {
+func (m *mockAdapterV2) ReadStream(path url.URL) (io.ReadCloser, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -91,12 +92,12 @@ func TestGetStoragesStorageNodesPath_DirectoryListing(t *testing.T) {
 	t.Run("list root directory", func(t *testing.T) {
 		mockNodes := []adapter.FileNode{
 			{
-				Path:     "subdir",
+				Path:     url.URL{Scheme: "local", Path: "/subdir"},
 				Type:     "dir",
 				Basename: "subdir",
 			},
 			{
-				Path:         "file.txt",
+				Path:         url.URL{Scheme: "local", Path: "/file.txt"},
 				Type:         "file",
 				Basename:     "file.txt",
 				Extension:    "txt",

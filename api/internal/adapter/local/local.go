@@ -3,6 +3,7 @@ package local
 import (
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path"
 	"strings"
@@ -14,8 +15,8 @@ const adapterName = "local"
 
 // Adapter implements adapter interfaces for local filesystem
 type Adapter struct {
-	root                *os.Root
-	zfsSnapshotProvider *ZFSSnapshotProvider
+	root *os.Root
+	zfs  *ZFS
 }
 
 // New creates a new local filesystem adapter
@@ -27,8 +28,8 @@ func New(rootPath string) (*Adapter, error) {
 	}
 
 	return &Adapter{
-		root:                root,
-		zfsSnapshotProvider: NewZFSSnapshotProvider(rootPath),
+		root: root,
+		zfs:  NewZFS(rootPath),
 	}, nil
 }
 
@@ -38,7 +39,7 @@ func (a *Adapter) Close() error {
 }
 
 // ListContents implements adapter.Lister
-func (a *Adapter) ListContents(vfPath string) ([]adapter.FileNode, error) {
+func (a *Adapter) ListContents(vfPath url.URL) ([]adapter.FileNode, error) {
 	// Convert VueFinder path to filesystem path
 	dirPath := adapter.StripPrefix(vfPath, adapterName)
 
@@ -87,7 +88,7 @@ func (a *Adapter) ListContents(vfPath string) ([]adapter.FileNode, error) {
 }
 
 // MimeType implements adapter.Reader
-func (a *Adapter) MimeType(vfPath string) (string, error) {
+func (a *Adapter) MimeType(vfPath url.URL) (string, error) {
 	filePath := adapter.StripPrefix(vfPath, adapterName)
 
 	file, err := a.root.Open(filePath)
@@ -104,7 +105,7 @@ func (a *Adapter) MimeType(vfPath string) (string, error) {
 }
 
 // FileSize implements adapter.Reader
-func (a *Adapter) FileSize(vfPath string) (int64, error) {
+func (a *Adapter) FileSize(vfPath url.URL) (int64, error) {
 	filePath := adapter.StripPrefix(vfPath, adapterName)
 
 	info, err := a.root.Stat(filePath)
@@ -116,13 +117,13 @@ func (a *Adapter) FileSize(vfPath string) (int64, error) {
 }
 
 // ReadStream implements adapter.Reader
-func (a *Adapter) ReadStream(vfPath string) (io.ReadCloser, error) {
+func (a *Adapter) ReadStream(vfPath url.URL) (io.ReadCloser, error) {
 	filePath := adapter.StripPrefix(vfPath, adapterName)
 	return a.root.Open(filePath)
 }
 
 // FileExists implements adapter.Existence
-func (a *Adapter) FileExists(vfPath string) (bool, error) {
+func (a *Adapter) FileExists(vfPath url.URL) (bool, error) {
 	filePath := adapter.StripPrefix(vfPath, adapterName)
 
 	info, err := a.root.Stat(filePath)
@@ -137,7 +138,7 @@ func (a *Adapter) FileExists(vfPath string) (bool, error) {
 }
 
 // DirectoryExists implements adapter.Existence
-func (a *Adapter) DirectoryExists(vfPath string) (bool, error) {
+func (a *Adapter) DirectoryExists(vfPath url.URL) (bool, error) {
 	dirPath := adapter.StripPrefix(vfPath, adapterName)
 
 	info, err := a.root.Stat(dirPath)
@@ -151,27 +152,7 @@ func (a *Adapter) DirectoryExists(vfPath string) (bool, error) {
 	return info.IsDir(), nil
 }
 
-// GetAvailableSnapshotTypes implements adapter.SnapshotProvider
-func (a *Adapter) GetAvailableSnapshotTypes() []string {
-	return a.zfsSnapshotProvider.GetAvailableSnapshotTypes()
-}
-
 // GetSnapshots implements adapter.SnapshotProvider
-func (a *Adapter) GetSnapshots(path string) ([]adapter.Snapshot, error) {
-	return a.zfsSnapshotProvider.GetSnapshots(path)
-}
-
-// GetSnapshotsOfType implements adapter.SnapshotProvider
-func (a *Adapter) GetSnapshotsOfType(path string, snapshotType string) ([]adapter.Snapshot, error) {
-	return a.zfsSnapshotProvider.GetSnapshotsOfType(path, snapshotType)
-}
-
-// ReadSnapshotFile implements adapter.SnapshotProvider
-func (a *Adapter) ReadSnapshotFile(path string, snapshotID string) ([]byte, error) {
-	return a.zfsSnapshotProvider.ReadSnapshotFile(path, snapshotID)
-}
-
-// ListSnapshotContents implements adapter.SnapshotProvider
-func (a *Adapter) ListSnapshotContents(path string, snapshotID string) ([]adapter.FileNode, error) {
-	return a.zfsSnapshotProvider.ListSnapshotContents(path, snapshotID)
+func (a *Adapter) ListSnapshots(path url.URL) ([]adapter.Snapshot, error) {
+	return a.zfs.Snapshots(path)
 }

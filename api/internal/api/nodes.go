@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"sort"
 	"strings"
 
@@ -42,6 +43,9 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 		nodePath = ""
 	}
 
+	// Create url.URL with adapter prefix
+	vfPath := adapter.AddPrefix(nodePath, string(storage))
+
 	// Determine if this is a directory listing or file retrieval based on Accept header
 	acceptHeader := r.Header.Get("Accept")
 
@@ -58,7 +62,7 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 	// We'll attempt to list - if it fails, we'll try to read as a file
 	if canList && !wantsFileContent {
 		// Try to list as a directory
-		nodes, err := lister.ListContents(nodePath)
+		nodes, err := lister.ListContents(vfPath)
 		if err == nil {
 			// It's a directory - return listing
 			s.serveDirectoryListing(w, r, storage, nodePath, nodes, params)
@@ -68,7 +72,7 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 
 	// If listing failed or client wants file content, try to read as a file
 	if canRead {
-		s.serveFileContent(w, r, storage, nodePath, reader, params)
+		s.serveFileContent(w, r, storage, nodePath, vfPath, reader, params)
 		return
 	}
 
@@ -129,7 +133,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 	files := make([]Node, 0, len(nodes))
 	for _, node := range nodes {
 		apiNode := Node{
-			Path:     node.Path,
+			Path:     node.Path.String(),
 			Type:     NodeType(node.Type),
 			Basename: node.Basename,
 			Storage:  string(storage),
@@ -180,23 +184,23 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 }
 
 // serveFileContent streams file content
-func (s *Server) serveFileContent(w http.ResponseWriter, r *http.Request, storage Storage, path string, reader adapter.Reader, params GetStoragesStorageNodesPathParams) {
+func (s *Server) serveFileContent(w http.ResponseWriter, r *http.Request, storage Storage, path string, vfPath url.URL, reader adapter.Reader, params GetStoragesStorageNodesPathParams) {
 	// Get MIME type
-	mimeType, err := reader.MimeType(path)
+	mimeType, err := reader.MimeType(vfPath)
 	if err != nil {
 		s.sendError(w, "Not Found", http.StatusNotFound, "Failed to get file MIME type: "+err.Error(), r.URL.Path)
 		return
 	}
 
 	// Get file size
-	fileSize, err := reader.FileSize(path)
+	fileSize, err := reader.FileSize(vfPath)
 	if err != nil {
 		s.sendError(w, "Not Found", http.StatusNotFound, "Failed to get file size: "+err.Error(), r.URL.Path)
 		return
 	}
 
 	// Open file stream
-	stream, err := reader.ReadStream(path)
+	stream, err := reader.ReadStream(vfPath)
 	if err != nil {
 		s.sendError(w, "Not Found", http.StatusNotFound, "Failed to open file: "+err.Error(), r.URL.Path)
 		return

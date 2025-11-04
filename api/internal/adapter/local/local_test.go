@@ -2,6 +2,7 @@ package local
 
 import (
 	"io"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -62,7 +63,7 @@ func TestListContents(t *testing.T) {
 	defer a.Close()
 
 	t.Run("list root", func(t *testing.T) {
-		nodes, err := a.ListContents("")
+		nodes, err := a.ListContents(url.URL{Scheme: "local", Path: "/"})
 		if err != nil {
 			t.Fatalf("ListContents failed: %v", err)
 		}
@@ -108,7 +109,7 @@ func TestListContents(t *testing.T) {
 	})
 
 	t.Run("list with local:// prefix", func(t *testing.T) {
-		nodes, err := a.ListContents("local://")
+		nodes, err := a.ListContents(url.URL{Scheme: "local", Path: "/"})
 		if err != nil {
 			t.Fatalf("ListContents failed: %v", err)
 		}
@@ -119,7 +120,7 @@ func TestListContents(t *testing.T) {
 	})
 
 	t.Run("list subdirectory", func(t *testing.T) {
-		nodes, err := a.ListContents("subdir")
+		nodes, err := a.ListContents(url.URL{Scheme: "local", Path: "/subdir"})
 		if err != nil {
 			t.Fatalf("ListContents failed: %v", err)
 		}
@@ -136,73 +137,72 @@ func TestListContents(t *testing.T) {
 	})
 
 	t.Run("non-existent directory", func(t *testing.T) {
-		_, err := a.ListContents("nonexistent")
+		_, err := a.ListContents(url.URL{Scheme: "local", Path: "/nonexistent"})
 		if err == nil {
 			t.Error("expected error for non-existent directory")
 		}
 	})
 
 	t.Run("list file instead of directory", func(t *testing.T) {
-		// Try to list a file (which should fail on Readdir)
-		_, err := a.ListContents("file1.txt")
+		_, err := a.ListContents(url.URL{Scheme: "local", Path: "/file1.txt"})
 		if err == nil {
 			t.Error("expected error when trying to list a file")
 		}
 	})
 
 	t.Run("verify paths have local:// prefix when listing root", func(t *testing.T) {
-		nodes, err := a.ListContents("")
+		nodes, err := a.ListContents(url.URL{Scheme: "local", Path: "/"})
 		if err != nil {
 			t.Fatalf("ListContents failed: %v", err)
 		}
 
 		for _, node := range nodes {
-			if !strings.HasPrefix(node.Path, "local://") {
-				t.Errorf("path %q should have 'local://' prefix", node.Path)
+			if !strings.HasPrefix(node.Path.String(), "local://") {
+				t.Errorf("path %q should have 'local://' prefix", node.Path.String())
 			}
 
 			// Verify the path format matches expected: local://basename
 			expectedPath := "local://" + node.Basename
-			if node.Path != expectedPath {
-				t.Errorf("path = %q, want %q", node.Path, expectedPath)
+			if node.Path.String() != expectedPath {
+				t.Errorf("path = %q, want %q", node.Path.String(), expectedPath)
 			}
 		}
 	})
 
 	t.Run("verify paths have local:// prefix when listing subdirectory", func(t *testing.T) {
-		nodes, err := a.ListContents("subdir")
+		nodes, err := a.ListContents(url.URL{Scheme: "local", Path: "/subdir"})
 		if err != nil {
 			t.Fatalf("ListContents failed: %v", err)
 		}
 
 		for _, node := range nodes {
-			if !strings.HasPrefix(node.Path, "local://") {
-				t.Errorf("path %q should have 'local://' prefix", node.Path)
+			if !strings.HasPrefix(node.Path.String(), "local://") {
+				t.Errorf("path %q should have 'local://' prefix", node.Path.String())
 			}
 
 			// Verify the path format matches expected: local://subdir/basename
 			expectedPath := "local://subdir/" + node.Basename
-			if node.Path != expectedPath {
-				t.Errorf("path = %q, want %q", node.Path, expectedPath)
+			if node.Path.String() != expectedPath {
+				t.Errorf("path = %q, want %q", node.Path.String(), expectedPath)
 			}
 		}
 	})
 
 	t.Run("verify paths have local:// prefix when input already has prefix", func(t *testing.T) {
-		nodes, err := a.ListContents("local://subdir")
+		nodes, err := a.ListContents(url.URL{Scheme: "local", Path: "/subdir"})
 		if err != nil {
 			t.Fatalf("ListContents failed: %v", err)
 		}
 
 		for _, node := range nodes {
-			if !strings.HasPrefix(node.Path, "local://") {
-				t.Errorf("path %q should have 'local://' prefix", node.Path)
+			if !strings.HasPrefix(node.Path.String(), "local://") {
+				t.Errorf("path %q should have 'local://' prefix", node.Path.String())
 			}
 
 			// Verify the path format matches expected: local://subdir/basename
 			expectedPath := "local://subdir/" + node.Basename
-			if node.Path != expectedPath {
-				t.Errorf("path = %q, want %q", node.Path, expectedPath)
+			if node.Path.String() != expectedPath {
+				t.Errorf("path = %q, want %q", node.Path.String(), expectedPath)
 			}
 		}
 	})
@@ -213,7 +213,7 @@ func TestListContents(t *testing.T) {
 		os.MkdirAll(nestedDir, 0755)
 		os.WriteFile(filepath.Join(nestedDir, "image.jpg"), []byte("fake image"), 0644)
 
-		nodes, err := a.ListContents("local://public/media")
+		nodes, err := a.ListContents(url.URL{Scheme: "local", Path: "/public/media"})
 		if err != nil {
 			t.Fatalf("ListContents failed: %v", err)
 		}
@@ -224,8 +224,8 @@ func TestListContents(t *testing.T) {
 
 		if len(nodes) > 0 {
 			expectedPath := "local://public/media/image.jpg"
-			if nodes[0].Path != expectedPath {
-				t.Errorf("path = %q, want %q", nodes[0].Path, expectedPath)
+			if nodes[0].Path.String() != expectedPath {
+				t.Errorf("path = %q, want %q", nodes[0].Path.String(), expectedPath)
 			}
 
 			if nodes[0].Basename != "image.jpg" {
@@ -250,21 +250,21 @@ func TestPathTraversalPrevention(t *testing.T) {
 	defer a.Close()
 
 	t.Run("prevent .. traversal", func(t *testing.T) {
-		_, err := a.ListContents("../")
+		_, err := a.ListContents(url.URL{Scheme: "local", Path: "/../"})
 		if err == nil {
 			t.Error("expected error when trying to traverse outside root")
 		}
 	})
 
 	t.Run("prevent ../../ traversal", func(t *testing.T) {
-		_, err := a.FileExists("../../outside.txt")
+		_, err := a.FileExists(url.URL{Scheme: "local", Path: "/../../outside.txt"})
 		if err == nil {
 			t.Error("expected error when trying to access file outside root")
 		}
 	})
 
 	t.Run("prevent absolute path", func(t *testing.T) {
-		_, err := a.FileExists("/etc/passwd")
+		_, err := a.FileExists(url.URL{Scheme: "local", Path: "/etc/passwd"})
 		if err == nil {
 			t.Error("expected error when trying to use absolute path")
 		}
@@ -296,7 +296,7 @@ func TestMimeType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.file, func(t *testing.T) {
-			mimeType, err := a.MimeType(tt.file)
+			mimeType, err := a.MimeType(url.URL{Scheme: "local", Path: "/" + tt.file})
 			if err != nil {
 				t.Fatalf("MimeType failed: %v", err)
 			}
@@ -309,7 +309,7 @@ func TestMimeType(t *testing.T) {
 	}
 
 	t.Run("non-existent file", func(t *testing.T) {
-		_, err := a.MimeType("nonexistent.txt")
+		_, err := a.MimeType(url.URL{Scheme: "local", Path: "/nonexistent.txt"})
 		if err == nil {
 			t.Error("expected error for non-existent file")
 		}
@@ -328,7 +328,7 @@ func TestFileSize(t *testing.T) {
 	}
 	defer a.Close()
 
-	size, err := a.FileSize("test.txt")
+	size, err := a.FileSize(url.URL{Scheme: "local", Path: "/test.txt"})
 	if err != nil {
 		t.Fatalf("FileSize failed: %v", err)
 	}
@@ -338,7 +338,7 @@ func TestFileSize(t *testing.T) {
 	}
 
 	t.Run("non-existent file", func(t *testing.T) {
-		_, err := a.FileSize("nonexistent.txt")
+		_, err := a.FileSize(url.URL{Scheme: "local", Path: "/nonexistent.txt"})
 		if err == nil {
 			t.Error("expected error for non-existent file")
 		}
@@ -357,7 +357,7 @@ func TestReadStream(t *testing.T) {
 	}
 	defer a.Close()
 
-	stream, err := a.ReadStream("test.txt")
+	stream, err := a.ReadStream(url.URL{Scheme: "local", Path: "/test.txt"})
 	if err != nil {
 		t.Fatalf("ReadStream failed: %v", err)
 	}
@@ -373,7 +373,7 @@ func TestReadStream(t *testing.T) {
 	}
 
 	t.Run("non-existent file", func(t *testing.T) {
-		_, err := a.ReadStream("nonexistent.txt")
+		_, err := a.ReadStream(url.URL{Scheme: "local", Path: "/nonexistent.txt"})
 		if err == nil {
 			t.Error("expected error for non-existent file")
 		}
@@ -393,7 +393,7 @@ func TestFileExists(t *testing.T) {
 	defer a.Close()
 
 	t.Run("existing file", func(t *testing.T) {
-		exists, err := a.FileExists("exists.txt")
+		exists, err := a.FileExists(url.URL{Scheme: "local", Path: "/exists.txt"})
 		if err != nil {
 			t.Fatalf("FileExists failed: %v", err)
 		}
@@ -403,7 +403,7 @@ func TestFileExists(t *testing.T) {
 	})
 
 	t.Run("non-existent file", func(t *testing.T) {
-		exists, err := a.FileExists("nonexistent.txt")
+		exists, err := a.FileExists(url.URL{Scheme: "local", Path: "/nonexistent.txt"})
 		if err != nil {
 			t.Fatalf("FileExists failed: %v", err)
 		}
@@ -413,7 +413,7 @@ func TestFileExists(t *testing.T) {
 	})
 
 	t.Run("directory", func(t *testing.T) {
-		exists, err := a.FileExists("dir")
+		exists, err := a.FileExists(url.URL{Scheme: "local", Path: "/dir"})
 		if err != nil {
 			t.Fatalf("FileExists failed: %v", err)
 		}
@@ -436,7 +436,7 @@ func TestDirectoryExists(t *testing.T) {
 	defer a.Close()
 
 	t.Run("existing directory", func(t *testing.T) {
-		exists, err := a.DirectoryExists("dir")
+		exists, err := a.DirectoryExists(url.URL{Scheme: "local", Path: "/dir"})
 		if err != nil {
 			t.Fatalf("DirectoryExists failed: %v", err)
 		}
@@ -446,7 +446,7 @@ func TestDirectoryExists(t *testing.T) {
 	})
 
 	t.Run("non-existent directory", func(t *testing.T) {
-		exists, err := a.DirectoryExists("nonexistent")
+		exists, err := a.DirectoryExists(url.URL{Scheme: "local", Path: "/nonexistent"})
 		if err != nil {
 			t.Fatalf("DirectoryExists failed: %v", err)
 		}
@@ -456,7 +456,7 @@ func TestDirectoryExists(t *testing.T) {
 	})
 
 	t.Run("file", func(t *testing.T) {
-		exists, err := a.DirectoryExists("file.txt")
+		exists, err := a.DirectoryExists(url.URL{Scheme: "local", Path: "/file.txt"})
 		if err != nil {
 			t.Fatalf("DirectoryExists failed: %v", err)
 		}
@@ -493,7 +493,7 @@ func TestEdgeCases(t *testing.T) {
 		defer os.Chmod(restrictedDir, 0755) // Restore permissions
 
 		// Try to check if a subdirectory exists - this should give a permission error
-		_, err := a.DirectoryExists("restricted/subdir")
+		_, err := a.DirectoryExists(url.URL{Scheme: "local", Path: "/restricted/subdir"})
 		// We expect an error, but not IsNotExist
 		if err == nil {
 			t.Skip("expected permission error but got none (might be running as root)")

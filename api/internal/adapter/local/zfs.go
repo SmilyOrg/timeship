@@ -2,6 +2,7 @@ package local
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -10,26 +11,21 @@ import (
 	"github.com/smilyorg/timeship/api/internal/adapter"
 )
 
-// ZFSSnapshotProvider implements the SnapshotProvider interface for ZFS filesystems
-type ZFSSnapshotProvider struct {
+// ZFS implements the SnapshotProvider interface for ZFS filesystems
+type ZFS struct {
 	rootDir string
 }
 
-// NewZFSSnapshotProvider creates a new ZFS snapshot provider
-func NewZFSSnapshotProvider(rootDir string) *ZFSSnapshotProvider {
-	return &ZFSSnapshotProvider{
+// NewZFS creates a new ZFS snapshot provider
+func NewZFS(rootDir string) *ZFS {
+	return &ZFS{
 		rootDir: rootDir,
 	}
 }
 
-// GetAvailableSnapshotTypes returns the types of snapshots this provider supports
-func (z *ZFSSnapshotProvider) GetAvailableSnapshotTypes() []string {
-	return []string{"zfs"}
-}
-
-// findZFSRoot traverses up from the given path looking for a .zfs directory
+// findSnapshotRoot traverses up from the given path looking for a .zfs directory
 // Returns the path to the ZFS root (where .zfs/snapshot exists) or empty string if not found
-func (z *ZFSSnapshotProvider) findZFSRoot(nodePath string) (string, error) {
+func (z *ZFS) findSnapshotRoot(nodePath string) (string, error) {
 	// Convert to absolute path
 	currentPath := nodePath
 	if !filepath.IsAbs(currentPath) {
@@ -61,22 +57,11 @@ func (z *ZFSSnapshotProvider) findZFSRoot(nodePath string) (string, error) {
 	return "", nil
 }
 
-// GetSnapshots returns all ZFS snapshots available for a given path
-func (z *ZFSSnapshotProvider) GetSnapshots(path string) ([]adapter.Snapshot, error) {
-	return z.GetSnapshotsOfType(path, "zfs")
-}
-
-// GetSnapshotsOfType returns ZFS snapshots for a given path
-func (z *ZFSSnapshotProvider) GetSnapshotsOfType(path string, snapshotType string) ([]adapter.Snapshot, error) {
-	if snapshotType != "zfs" {
-		return []adapter.Snapshot{}, nil
-	}
-
-	// Strip the adapter prefix from the path if present
-	fsPath := adapter.StripPrefix(path, "local")
+// Snapshots returns all ZFS snapshots available for a given path
+func (z *ZFS) Snapshots(path url.URL) ([]adapter.Snapshot, error) {
 
 	// Find the ZFS root
-	zfsRoot, err := z.findZFSRoot(fsPath)
+	zfsRoot, err := z.findSnapshotRoot(path.Path)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +93,7 @@ func (z *ZFSSnapshotProvider) GetSnapshotsOfType(path string, snapshotType strin
 		// Parse the snapshot directory info to get timestamp
 		// Format is typically like: auto-daily-2025-10-28_00-00, auto-hourly-2025-10-30_01-00, etc.
 		modTime := info.ModTime()
-		timestamp := adapter.TimeToTimestamp(modTime)
+		timestamp := modTime.Unix()
 
 		snapshot := adapter.Snapshot{
 			ID:        fmt.Sprintf("zfs:%s", entry.Name()),
@@ -135,7 +120,7 @@ func (z *ZFSSnapshotProvider) GetSnapshotsOfType(path string, snapshotType strin
 // getSnapshotPath extracts the snapshot path from the snapshot ID
 // Input format: "zfs:snapshot-name"
 // Returns just the "snapshot-name" part
-func (z *ZFSSnapshotProvider) getSnapshotPath(snapshotID string) (string, error) {
+func (z *ZFS) getSnapshotPath(snapshotID string) (string, error) {
 	parts := strings.SplitN(snapshotID, ":", 2)
 	if len(parts) != 2 || parts[0] != "zfs" {
 		return "", fmt.Errorf("invalid snapshot ID format: %s", snapshotID)
@@ -144,7 +129,7 @@ func (z *ZFSSnapshotProvider) getSnapshotPath(snapshotID string) (string, error)
 }
 
 // ReadSnapshotFile reads a file from a snapshot
-func (z *ZFSSnapshotProvider) ReadSnapshotFile(path string, snapshotID string) ([]byte, error) {
+func (z *ZFS) ReadSnapshotFile(path url.URL, snapshotID string) ([]byte, error) {
 	// Strip the adapter prefix from the path if present
 	fsPath := adapter.StripPrefix(path, "local")
 	if fsPath == "." {
@@ -161,13 +146,13 @@ func (z *ZFSSnapshotProvider) ReadSnapshotFile(path string, snapshotID string) (
 	absPath = filepath.Clean(absPath)
 
 	// Find the ZFS root
-	zfsRoot, err := z.findZFSRoot(absPath)
+	zfsRoot, err := z.findSnapshotRoot(absPath)
 	if err != nil {
 		return nil, err
 	}
 
 	if zfsRoot == "" {
-		return nil, fmt.Errorf("ZFS root not found for path: %s", path)
+		return nil, fmt.Errorf("ZFS root not found for path: %s", path.String())
 	}
 
 	// Get the snapshot name from the snapshot ID
@@ -190,7 +175,7 @@ func (z *ZFSSnapshotProvider) ReadSnapshotFile(path string, snapshotID string) (
 }
 
 // ListSnapshotContents lists the contents of a directory in a snapshot
-func (z *ZFSSnapshotProvider) ListSnapshotContents(path string, snapshotID string) ([]adapter.FileNode, error) {
+func (z *ZFS) ListSnapshotContents(path url.URL, snapshotID string) ([]adapter.FileNode, error) {
 	// Strip the adapter prefix from the path if present
 	fsPath := adapter.StripPrefix(path, "local")
 	if fsPath == "." {
@@ -207,13 +192,13 @@ func (z *ZFSSnapshotProvider) ListSnapshotContents(path string, snapshotID strin
 	absPath = filepath.Clean(absPath)
 
 	// Find the ZFS root
-	zfsRoot, err := z.findZFSRoot(absPath)
+	zfsRoot, err := z.findSnapshotRoot(absPath)
 	if err != nil {
 		return nil, err
 	}
 
 	if zfsRoot == "" {
-		return nil, fmt.Errorf("ZFS root not found for path: %s", path)
+		return nil, fmt.Errorf("ZFS root not found for path: %s", path.String())
 	}
 
 	// Get the snapshot name from the snapshot ID
