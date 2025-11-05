@@ -23,6 +23,7 @@ func (s *Server) GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request,
 		Download: params.Download,
 		Sort:     (*GetStoragesStorageNodesPathParamsSort)(params.Sort),
 		Order:    (*GetStoragesStorageNodesPathParamsOrder)(params.Order),
+		Snapshot: params.Snapshot,
 	}
 	s.GetStoragesStorageNodesPath(w, r, storage, "", pathParams)
 }
@@ -45,6 +46,13 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 
 	// Create url.URL with adapter prefix
 	vfPath := adapter.AddPrefix(nodePath, string(storage))
+
+	// Add snapshot query parameter if provided
+	if params.Snapshot != nil && *params.Snapshot != "" {
+		q := vfPath.Query()
+		q.Set("snapshot", *params.Snapshot)
+		vfPath.RawQuery = q.Encode()
+	}
 
 	// Determine if this is a directory listing or file retrieval based on Accept header
 	acceptHeader := r.Header.Get("Accept")

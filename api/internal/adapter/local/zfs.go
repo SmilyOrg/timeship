@@ -128,8 +128,9 @@ func (z *ZFS) getSnapshotPath(snapshotID string) (string, error) {
 	return parts[1], nil
 }
 
-// ReadSnapshotFile reads a file from a snapshot
-func (z *ZFS) ReadSnapshotFile(path url.URL, snapshotID string) ([]byte, error) {
+// OpenSnapshotRoot opens an os.Root for a snapshot, allowing safe traversal within it
+// Returns the os.Root and the relative path within the snapshot
+func (z *ZFS) OpenSnapshotRoot(path url.URL, snapshotID string) (*os.Root, string, error) {
 	// Strip the adapter prefix from the path if present
 	fsPath := adapter.StripPrefix(path, "local")
 	if fsPath == "." {
@@ -148,125 +149,39 @@ func (z *ZFS) ReadSnapshotFile(path url.URL, snapshotID string) ([]byte, error) 
 	// Find the ZFS root
 	zfsRoot, err := z.findSnapshotRoot(absPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	if zfsRoot == "" {
-		return nil, fmt.Errorf("ZFS root not found for path: %s", path.String())
+		return nil, "", fmt.Errorf("ZFS root not found for path: %s", path.String())
 	}
 
 	// Get the snapshot name from the snapshot ID
 	snapshotName, err := z.getSnapshotPath(snapshotID)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	// Calculate the relative path from the ZFS root to the requested file
+	// Calculate the relative path from the ZFS root to the requested node
 	relPath, err := filepath.Rel(zfsRoot, absPath)
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
-	// Construct the path to the file in the snapshot
-	snapshotPath := filepath.Join(zfsRoot, ".zfs", "snapshot", snapshotName, relPath)
+	// Construct the path to the snapshot root
+	snapshotRootPath := filepath.Join(zfsRoot, ".zfs", "snapshot", snapshotName)
 
-	// Read the file
-	return os.ReadFile(snapshotPath)
-}
-
-// ListSnapshotContents lists the contents of a directory in a snapshot
-func (z *ZFS) ListSnapshotContents(path url.URL, snapshotID string) ([]adapter.FileNode, error) {
-	// Strip the adapter prefix from the path if present
-	fsPath := adapter.StripPrefix(path, "local")
-	if fsPath == "." {
-		fsPath = ""
-	}
-
-	// Convert to absolute path relative to rootDir
-	var absPath string
-	if filepath.IsAbs(fsPath) {
-		absPath = fsPath
-	} else {
-		absPath = filepath.Join(z.rootDir, fsPath)
-	}
-	absPath = filepath.Clean(absPath)
-
-	// Find the ZFS root
-	zfsRoot, err := z.findSnapshotRoot(absPath)
+	// Open the snapshot root
+	snapshotRoot, err := os.OpenRoot(snapshotRootPath)
 	if err != nil {
-		return nil, err
+		return nil, "", fmt.Errorf("failed to open snapshot root: %w", err)
 	}
 
-	if zfsRoot == "" {
-		return nil, fmt.Errorf("ZFS root not found for path: %s", path.String())
+	// Return the root and the relative path within it
+	// Convert "." to empty string for consistency
+	if relPath == "." {
+		relPath = ""
 	}
 
-	// Get the snapshot name from the snapshot ID
-	snapshotName, err := z.getSnapshotPath(snapshotID)
-	if err != nil {
-		return nil, err
-	}
-
-	// Calculate the relative path from the ZFS root to the requested directory
-	relPath, err := filepath.Rel(zfsRoot, absPath)
-	if err != nil {
-		return nil, err
-	}
-
-	// Construct the path to the directory in the snapshot
-	snapshotPath := filepath.Join(zfsRoot, ".zfs", "snapshot", snapshotName, relPath)
-
-	// Read the directory
-	entries, err := os.ReadDir(snapshotPath)
-	if err != nil {
-		return nil, err
-	}
-
-	nodes := []adapter.FileNode{}
-	for _, entry := range entries {
-		// Get file info to retrieve size and modification time
-		info, err := entry.Info()
-		if err != nil {
-			continue // Skip entries we can't stat
-		}
-
-		// Calculate the path with adapter prefix
-		// Construct the display path relative to the rootDir
-		displayPath := filepath.Join(fsPath, entry.Name())
-		if displayPath == "." {
-			displayPath = entry.Name()
-		}
-		adapterPath := adapter.AddPrefix(displayPath, "local")
-
-		fileType := "file"
-		if entry.IsDir() {
-			fileType = "dir"
-		}
-
-		node := adapter.FileNode{
-			Path:         adapterPath,
-			Type:         fileType,
-			Basename:     entry.Name(),
-			Size:         info.Size(),
-			LastModified: info.ModTime().Unix(),
-		}
-
-		// Set extension for files
-		if fileType == "file" {
-			ext := filepath.Ext(entry.Name())
-			if ext != "" {
-				node.Extension = ext[1:] // Remove the leading dot
-			}
-		}
-
-		// Try to get MIME type for files
-		if fileType == "file" {
-			// For now, we'll skip MIME type detection
-			// This could be enhanced with a library like github.com/gabriel-vasile/mimetype
-		}
-
-		nodes = append(nodes, node)
-	}
-
-	return nodes, nil
+	return snapshotRoot, relPath, nil
 }
