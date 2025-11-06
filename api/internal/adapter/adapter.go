@@ -3,6 +3,7 @@ package adapter
 import (
 	"io"
 	"net/url"
+	"path/filepath"
 	"strings"
 )
 
@@ -78,10 +79,7 @@ type Adapter interface {
 //   - StripPrefix("", "local") -> "."
 //   - StripPrefix("documents/file.txt", "local") -> "documents/file.txt" (no prefix to strip)
 func StripPrefix(vfPath url.URL, adapterName string) string {
-	fsPath := vfPath.Path
-	if fsPath == "" || fsPath == "/" {
-		return "."
-	}
+	fsPath := filepath.Clean(vfPath.Path)
 	return strings.TrimPrefix(fsPath, "/")
 }
 

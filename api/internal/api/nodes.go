@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
@@ -143,7 +144,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 		apiNode := Node{
 			Path:         node.Path.String(),
 			Type:         NodeType(node.Type),
-			Basename:     node.Basename,
+			Basename:     node.Basename + fmt.Sprintf("%3d", rand.Int31n(100000)),
 			Extension:    node.Extension,
 			FileSize:     node.Size,
 			LastModified: node.LastModified,

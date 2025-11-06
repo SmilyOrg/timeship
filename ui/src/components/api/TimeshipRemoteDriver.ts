@@ -9,11 +9,42 @@ import { RemoteDriver } from 'vuefinder';
 export class TimeshipRemoteDriver extends RemoteDriver {
   private adapter: string;
   private baseURL: string;
+  private snapshot: string | null;
 
   constructor(config: any) {
     super(config);
     this.adapter = config.adapter || 'local';
     this.baseURL = config.baseURL || '';
+    this.snapshot = config.snapshot || null;
+  }
+
+  /**
+   * Update the snapshot reference
+   */
+  setSnapshot(snapshot: string | null): void {
+    this.snapshot = snapshot;
+  }
+
+  /**
+   * Build query string with snapshot parameter if set
+   */
+  private buildQueryString(additionalParams?: Record<string, any>): string {
+    const params = new URLSearchParams();
+    
+    if (this.snapshot) {
+      params.append('snapshot', this.snapshot);
+    }
+    
+    if (additionalParams) {
+      Object.entries(additionalParams).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          params.append(key, String(value));
+        }
+      });
+    }
+    
+    const queryString = params.toString();
+    return queryString ? `?${queryString}` : '';
   }
 
   /**
@@ -30,7 +61,8 @@ export class TimeshipRemoteDriver extends RemoteDriver {
   private buildNodeUrl(path: string): string {
     const cleanedPath = this.cleanPath(path);
     const base = `/storages/${this.adapter}/nodes`;
-    return cleanedPath ? `${base}/${cleanedPath}` : base;
+    const url = cleanedPath ? `${base}/${cleanedPath}` : base;
+    return `${url}${this.buildQueryString()}`;
   }
 
   /**

@@ -27,13 +27,7 @@ func NewZFS(rootDir string) *ZFS {
 // Returns the path to the ZFS root (where .zfs/snapshot exists) or empty string if not found
 func (z *ZFS) findSnapshotRoot(nodePath string) (string, error) {
 	// Convert to absolute path
-	currentPath := nodePath
-	if !filepath.IsAbs(currentPath) {
-		currentPath = filepath.Join(z.rootDir, currentPath)
-	}
-
-	// Make sure we're working with clean paths
-	currentPath = filepath.Clean(currentPath)
+	currentPath := filepath.Join(z.rootDir, nodePath)
 
 	// Start from the given path and traverse up
 	for {
@@ -138,13 +132,14 @@ func (z *ZFS) OpenSnapshotRoot(path url.URL, snapshotID string) (*os.Root, strin
 	}
 
 	// Convert to absolute path relative to rootDir
-	var absPath string
-	if filepath.IsAbs(fsPath) {
-		absPath = fsPath
-	} else {
-		absPath = filepath.Join(z.rootDir, fsPath)
-	}
-	absPath = filepath.Clean(absPath)
+	// var absPath string
+	// if filepath.IsAbs(fsPath) {
+	// 	absPath = fsPath
+	// } else {
+	// 	absPath = filepath.Join(z.rootDir, fsPath)
+	// }
+	// absPath = filepath.Clean(absPath)
+	absPath := filepath.Join(z.rootDir, fsPath)
 
 	// Find the ZFS root
 	zfsRoot, err := z.findSnapshotRoot(absPath)
@@ -179,9 +174,9 @@ func (z *ZFS) OpenSnapshotRoot(path url.URL, snapshotID string) (*os.Root, strin
 
 	// Return the root and the relative path within it
 	// Convert "." to empty string for consistency
-	if relPath == "." {
-		relPath = ""
-	}
+	// if relPath == "." {
+	// 	relPath = ""
+	// }
 
 	return snapshotRoot, relPath, nil
 }
