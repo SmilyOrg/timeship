@@ -139,64 +139,50 @@ type ErrorResponse struct {
 type ErrorResponseStatus bool
 
 // Node Unified representation of any filesystem object (file or directory).
-// Inspired by Unix inode concept where everything is a node with attributes.
+// Matches VueFinder v4 response structure.
+// Storage identifier is implicit in the path prefix (e.g., "local://path").
 type Node struct {
 	// Basename Base name of the node
 	Basename string `json:"basename"`
 
-	// Children Child nodes (only present for directories when listing)
-	Children *[]Node `json:"children,omitempty"`
-
-	// Dir Parent directory path with adapter prefix
+	// Dir Parent directory path with storage prefix (only present in search results)
 	Dir *string `json:"dir,omitempty"`
 
-	// Extension File extension (only for files)
-	Extension *string `json:"extension,omitempty"`
+	// Extension File extension (empty string for directories)
+	Extension string `json:"extension"`
 
-	// FileSize Size in bytes (only for files)
-	FileSize *int64 `json:"file_size,omitempty"`
+	// FileSize Size in bytes (0 for directories)
+	FileSize int64 `json:"file_size"`
 
 	// LastModified Unix timestamp of last modification
-	LastModified *int64 `json:"last_modified,omitempty"`
+	LastModified int64 `json:"last_modified"`
 
-	// MimeType MIME type (only for files)
+	// MimeType MIME type (only present for files when detection succeeds)
 	MimeType *string `json:"mime_type,omitempty"`
 
-	// Path Full path with adapter prefix
+	// Path Full path with storage prefix
 	Path string `json:"path"`
-
-	// Permissions Node permissions
-	Permissions *struct {
-		Executable *bool `json:"executable,omitempty"`
-		Readable   *bool `json:"readable,omitempty"`
-		Writable   *bool `json:"writable,omitempty"`
-	} `json:"permissions,omitempty"`
-
-	// Storage Storage adapter identifier
-	Storage string `json:"storage"`
 
 	// Type Type of the filesystem node
 	Type NodeType `json:"type"`
+
+	// Url Public URL for the file (present when URL resolver is configured, null otherwise)
+	Url *string `json:"url"`
 }
 
-// NodeList Response containing list of nodes
+// NodeList Response containing list of nodes.
+// Matches VueFinder v4 list response structure.
 type NodeList struct {
-	// Adapter Current storage adapter
-	Adapter string `json:"adapter"`
-
-	// Dirname Current directory path with adapter prefix
+	// Dirname Current directory path with storage prefix
 	Dirname string `json:"dirname"`
 
-	// Files Child nodes
+	// Files Child nodes in the current directory
 	Files []Node `json:"files"`
 
-	// Path Current directory path without adapter prefix
-	Path *string `json:"path,omitempty"`
+	// ReadOnly Whether the current storage is read-only
+	ReadOnly bool `json:"read_only"`
 
-	// Storage Current storage adapter
-	Storage string `json:"storage"`
-
-	// Storages Available storage adapters
+	// Storages Available storage identifiers
 	Storages []string `json:"storages"`
 }
 
@@ -309,7 +295,8 @@ type BadRequest400 = ErrorResponse
 type NodeConflict409 = ErrorResponse
 
 // NodeCreated201 Unified representation of any filesystem object (file or directory).
-// Inspired by Unix inode concept where everything is a node with attributes.
+// Matches VueFinder v4 response structure.
+// Storage identifier is implicit in the path prefix (e.g., "local://path").
 type NodeCreated201 = Node
 
 // NodeNotFound404 defines model for nodeNotFound404.

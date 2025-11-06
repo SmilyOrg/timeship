@@ -2,8 +2,9 @@ import { createApp } from 'vue'
 import './style.css'
 import App from './App.vue'
 
-import VueFinder from 'vuefinder/dist/vuefinder'
-import 'vuefinder/dist/style.css'
+import 'vuefinder/dist/style.css';
+import VueFinder from 'vuefinder';
+
 import { VueQueryPlugin } from '@tanstack/vue-query'
 import '@picocss/pico/css/pico.classless.blue.css'
 

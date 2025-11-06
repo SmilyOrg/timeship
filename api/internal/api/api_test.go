@@ -133,8 +133,9 @@ func TestGetStoragesStorageNodesPath_DirectoryListing(t *testing.T) {
 			t.Fatalf("failed to decode response: %v", err)
 		}
 
-		if response.Storage != "local" {
-			t.Errorf("expected storage 'local', got '%s'", response.Storage)
+		// Check that response has ReadOnly field
+		if response.ReadOnly {
+			t.Errorf("expected read_only to be false for writable storage")
 		}
 
 		if len(response.Files) != 2 {

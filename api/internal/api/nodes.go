@@ -141,24 +141,17 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 	files := make([]Node, 0, len(nodes))
 	for _, node := range nodes {
 		apiNode := Node{
-			Path:     node.Path.String(),
-			Type:     NodeType(node.Type),
-			Basename: node.Basename,
-			Storage:  string(storage),
+			Path:         node.Path.String(),
+			Type:         NodeType(node.Type),
+			Basename:     node.Basename,
+			Extension:    node.Extension,
+			FileSize:     node.Size,
+			LastModified: node.LastModified,
 		}
 
 		// Add optional fields
-		if node.Extension != "" {
-			apiNode.Extension = &node.Extension
-		}
 		if node.MimeType != "" {
 			apiNode.MimeType = &node.MimeType
-		}
-		if node.Size > 0 {
-			apiNode.FileSize = &node.Size
-		}
-		if node.LastModified > 0 {
-			apiNode.LastModified = &node.LastModified
 		}
 
 		files = append(files, apiNode)
@@ -180,9 +173,8 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 	// Create response - Files contains the direct children, not wrapped in a directory node
 	response := NodeList{
 		Files:    files,
-		Adapter:  string(storage),
 		Dirname:  dirname,
-		Storage:  string(storage),
+		ReadOnly: false, // TODO: Determine read-only status from adapter capabilities
 		Storages: storages,
 	}
 

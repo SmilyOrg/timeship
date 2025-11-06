@@ -1,8 +1,9 @@
-openapi: 3.1.0
+openapi: 3.0.3
 info:
   title: VueFinder API v2 (RESTful Edition)
   description: |
     RESTful file management API using unified node concept.
+    Compatible with VueFinder v4 response structures while maintaining RESTful design.
     
     All filesystem objects (files and directories) are treated as "nodes" with a type field.
     This mirrors the Unix/Linux filesystem philosophy where everything is an inode.
@@ -12,6 +13,8 @@ info:
     - Node type (file/dir) is determined by the response, not the URL
     - Paths are hierarchical and natural - empty path = storage root
     - Operations are RESTful resources (moves, copies, archives)
+    - Storage identifier is implicit in path prefix (e.g., "local://path")
+    - Response structures match VueFinder v4 for compatibility
   version: 2.0.0
   
 servers:
@@ -43,16 +46,19 @@ components:
       type: object
       description: |
         Unified representation of any filesystem object (file or directory).
-        Inspired by Unix inode concept where everything is a node with attributes.
+        Matches VueFinder v4 response structure.
+        Storage identifier is implicit in the path prefix (e.g., "local://path").
       required:
         - path
         - type
         - basename
-        - storage
+        - extension
+        - last_modified
+        - file_size
       properties:
         path:
           type: string
-          description: Full path with adapter prefix
+          description: Full path with storage prefix
           example: 'local://documents/reports/2024/report.pdf'
         type:
           $ref: '#/components/schemas/NodeType'
@@ -60,85 +66,64 @@ components:
           type: string
           description: Base name of the node
           example: 'report.pdf'
-        storage:
-          type: string
-          description: Storage adapter identifier
-          example: 'local'
         extension:
           type: string
-          description: File extension (only for files)
+          description: File extension (empty string for directories)
           example: 'pdf'
         mime_type:
           type: string
-          description: MIME type (only for files)
+          description: MIME type (only present for files when detection succeeds)
           example: 'application/pdf'
         file_size:
           type: integer
           format: int64
-          description: Size in bytes (only for files)
+          description: Size in bytes (0 for directories)
           example: 1048576
         last_modified:
           type: integer
           format: int64
           description: Unix timestamp of last modification
           example: 1698364800
+        url:
+          type: string
+          nullable: true
+          description: Public URL for the file (present when URL resolver is configured, null otherwise)
+          example: 'https://cdn.example.com/documents/reports/2024/report.pdf'
         dir:
           type: string
-          description: Parent directory path with adapter prefix
+          description: Parent directory path with storage prefix (only present in search results)
           example: 'local://documents/reports/2024'
-        permissions:
-          type: object
-          description: Node permissions
-          properties:
-            readable:
-              type: boolean
-            writable:
-              type: boolean
-            executable:
-              type: boolean
-        children:
-          type: array
-          description: Child nodes (only present for directories when listing)
-          items:
-            $ref: '#/components/schemas/Node'
             
     NodeList:
       type: object
-      description: Response containing list of nodes
+      description: |
+        Response containing list of nodes.
+        Matches VueFinder v4 list response structure.
       required:
-        - adapter
-        - storage
-        - storages
         - dirname
         - files
+        - read_only
+        - storages
       properties:
-        adapter:
+        dirname:
           type: string
-          description: Current storage adapter
-          example: 'local'
-        storage:
-          type: string
-          description: Current storage adapter
-          example: 'local'
+          description: Current directory path with storage prefix
+          example: 'local://documents/reports'
+        files:
+          type: array
+          description: Child nodes in the current directory
+          items:
+            $ref: '#/components/schemas/Node'
+        read_only:
+          type: boolean
+          description: Whether the current storage is read-only
+          example: false
         storages:
           type: array
-          description: Available storage adapters
+          description: Available storage identifiers
           items:
             type: string
           example: ['local', 's3', 'minio']
-        dirname:
-          type: string
-          description: Current directory path with adapter prefix
-          example: 'local://documents/reports'
-        path:
-          type: string
-          description: Current directory path without adapter prefix
-          example: 'documents/reports'
-        files:
-          type: array
-          description: Child nodes
-          items:
-            $ref: '#/components/schemas/Node'
     
     CreateNodeRequest:
       type: object
@@ -488,56 +473,60 @@ components:
             directory:
               summary: Directory listing
               value:
-                adapter: local
-                storage: local
-                storages: [local, s3]
                 dirname: local://documents
-                path: documents
+                read_only: false
+                storages: [local, s3]
                 files:
                   - path: local://documents/reports
                     type: dir
                     basename: reports
-                    storage: local
+                    extension: ""
                     last_modified: 1698364800
-                    dir: local://documents
+                    file_size: 0
                   - path: local://documents/readme.txt
                     type: file
                     basename: readme.txt
-                    storage: local
                     extension: txt
                     mime_type: text/plain
                     file_size: 1024
                     last_modified: 1698364800
-                    dir: local://documents
+                    url: https://cdn.example.com/documents/readme.txt
             file:
               summary: File metadata
               value:
                 path: local://documents/report.pdf
                 type: file
                 basename: report.pdf
-                storage: local
                 extension: pdf
                 mime_type: application/pdf
                 file_size: 1048576
                 last_modified: 1698364800
-                dir: local://documents
+                url: https://cdn.example.com/documents/report.pdf
             search:
               summary: Search results
               value:
-                adapter: local
-                storage: local
-                storages: [local, s3]
                 dirname: local://documents
-                path: documents
+                read_only: false
+                storages: [local, s3]
                 files:
                   - path: local://documents/2024/report.pdf
                     type: file
                     basename: report.pdf
-                    storage: local
+                    extension: pdf
+                    mime_type: application/pdf
+                    file_size: 2097152
+                    last_modified: 1698364800
+                    dir: local://documents/2024
+                    url: https://cdn.example.com/documents/2024/report.pdf
                   - path: local://documents/reports/annual-report.pdf
                     type: file
                     basename: annual-report.pdf
-                    storage: local
+                    extension: pdf
+                    mime_type: application/pdf
+                    file_size: 1536000
+                    last_modified: 1698364800
+                    dir: local://documents/reports
+                    url: https://cdn.example.com/documents/reports/annual-report.pdf
         application/octet-stream:
           schema:
             type: string
@@ -1087,12 +1076,11 @@ paths:
                 path: local://backup-2024-11.zip
                 type: file
                 basename: backup-2024-11.zip
-                storage: local
                 extension: zip
                 mime_type: application/zip
                 file_size: 2097152
                 last_modified: 1698364800
-                dir: local://
+                url: null
         '400':
           description: Bad request
           content:
