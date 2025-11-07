@@ -90,14 +90,6 @@ table {
   border-spacing: 0;
 }
 
-tr.selected {
-  background-color: #eef !important;
-}
-
-tr.selected td {
-  background-color: #eef !important;
-}
-
 td {
   margin: 0;
   padding: 0px;
@@ -105,10 +97,20 @@ td {
   line-height: 1;
 }
 
+tr.selected td {
+  background-color: #eef !important;
+}
+
 tr {
   border: 0;
   padding: 0;
   line-height: 1;
+  border-left: 2px solid transparent;
+}
+
+tr.selected {
+  /* background-color: #eef !important; */
+  border-left: 2px solid rgb(178, 178, 255);
 }
 
 td label {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/smilyorg/timeship/api/internal/adapter"
 )
@@ -31,12 +32,6 @@ func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Clean the path - empty path means storage root
-	nodePath := path
-	if nodePath == "/" {
-		nodePath = ""
-	}
-
 	// Check if adapter supports snapshots
 	snapshotLister, ok := storageAdapter.(adapter.SnapshotLister)
 	if !ok {
@@ -44,10 +39,12 @@ func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.
 		return
 	}
 
-	// Create url.URL with adapter prefix
-	vfPath := adapter.AddPrefix(nodePath, string(storage))
+	vfPath := url.URL{
+		Scheme: string(storage),
+		Path:   path,
+	}
 
-	log.Printf("GetStoragesStorageSnapshotsPath: storage=%s, path=%s, vfPath=%s", storage, nodePath, vfPath.String())
+	log.Printf("GetStoragesStorageSnapshotsPath: storage=%s, path=%s, vfPath=%s", storage, path, vfPath.String())
 
 	// Get snapshots from the adapter
 	snapshots, err := snapshotLister.ListSnapshots(vfPath)
@@ -97,7 +94,7 @@ func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.
 
 	response := NodeSnapshotsList{
 		Storage:   string(storage),
-		Path:      nodePath,
+		Path:      path,
 		Snapshots: apiSnapshots,
 	}
 

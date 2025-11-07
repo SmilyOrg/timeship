@@ -2,7 +2,6 @@ package local
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -25,17 +24,16 @@ func NewZFS(rootDir string) *ZFS {
 
 // findSnapshotRoot traverses up from the given path looking for a .zfs directory
 // Returns the path to the ZFS root (where .zfs/snapshot exists) or empty string if not found
-func (z *ZFS) findSnapshotRoot(nodePath string) (string, error) {
-	// Convert to absolute path
-	currentPath := filepath.Join(z.rootDir, nodePath)
+func (z *ZFS) findSnapshotRoot(relPath string) (string, error) {
+	currentPath := filepath.Join(z.rootDir, relPath)
 
 	// Start from the given path and traverse up
 	for {
-		zfsSnapshotDir := filepath.Join(currentPath, ".zfs", "snapshot")
-		stat, err := os.Stat(zfsSnapshotDir)
+		dir := filepath.Join(currentPath, ".zfs", "snapshot")
+		stat, err := os.Stat(dir)
 		if err == nil && stat.IsDir() {
 			// Found it!
-			return currentPath, nil
+			return dir, nil
 		}
 
 		// Move up one directory
@@ -52,24 +50,16 @@ func (z *ZFS) findSnapshotRoot(nodePath string) (string, error) {
 }
 
 // Snapshots returns all ZFS snapshots available for a given path
-func (z *ZFS) Snapshots(path url.URL) ([]adapter.Snapshot, error) {
+func (z *ZFS) Snapshots(relPath string) ([]adapter.Snapshot, error) {
 
-	// Find the ZFS root
-	zfsRoot, err := z.findSnapshotRoot(path.Path)
+	rootPath, err := z.findSnapshotRoot(relPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("unable to find snapshot root: %w", err)
 	}
 
-	if zfsRoot == "" {
-		// No ZFS filesystem found
-		return []adapter.Snapshot{}, nil
-	}
-
-	// List snapshots in .zfs/snapshot
-	snapshotDir := filepath.Join(zfsRoot, ".zfs", "snapshot")
-	entries, err := os.ReadDir(snapshotDir)
+	entries, err := os.ReadDir(rootPath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read snapshot dir: %w", err)
 	}
 
 	snapshots := []adapter.Snapshot{}
@@ -96,7 +86,7 @@ func (z *ZFS) Snapshots(path url.URL) ([]adapter.Snapshot, error) {
 			Name:      entry.Name(),
 			Size:      -1, // ZFS snapshot size is not easily determinable
 			Metadata: adapter.SnapshotMetadata{
-				"zfs_root": zfsRoot,
+				"zfs_root": rootPath,
 			},
 		}
 
@@ -104,8 +94,12 @@ func (z *ZFS) Snapshots(path url.URL) ([]adapter.Snapshot, error) {
 	}
 
 	// Sort by timestamp in descending order (newest first)
+	// sort.Slice(snapshots, func(i, j int) bool {
+	// 	return snapshots[i].Timestamp > snapshots[j].Timestamp
+	// })
+
 	sort.Slice(snapshots, func(i, j int) bool {
-		return snapshots[i].Timestamp > snapshots[j].Timestamp
+		return snapshots[i].Name > snapshots[j].Name
 	})
 
 	return snapshots, nil
@@ -124,59 +118,31 @@ func (z *ZFS) getSnapshotPath(snapshotID string) (string, error) {
 
 // OpenSnapshotRoot opens an os.Root for a snapshot, allowing safe traversal within it
 // Returns the os.Root and the relative path within the snapshot
-func (z *ZFS) OpenSnapshotRoot(path url.URL, snapshotID string) (*os.Root, string, error) {
-	// Strip the adapter prefix from the path if present
-	fsPath := adapter.StripPrefix(path, "local")
-	if fsPath == "." {
-		fsPath = ""
-	}
-
-	// Convert to absolute path relative to rootDir
-	// var absPath string
-	// if filepath.IsAbs(fsPath) {
-	// 	absPath = fsPath
-	// } else {
-	// 	absPath = filepath.Join(z.rootDir, fsPath)
-	// }
-	// absPath = filepath.Clean(absPath)
-	absPath := filepath.Join(z.rootDir, fsPath)
-
+func (z *ZFS) SnapshotRoot(relPath string, snapshotID string) (*os.Root, error) {
 	// Find the ZFS root
-	zfsRoot, err := z.findSnapshotRoot(absPath)
+	rootPath, err := z.findSnapshotRoot(relPath)
 	if err != nil {
-		return nil, "", err
+		return nil, fmt.Errorf("unable to find snapshot root: %w", err)
 	}
 
-	if zfsRoot == "" {
-		return nil, "", fmt.Errorf("ZFS root not found for path: %s", path.String())
+	if rootPath == "" {
+		return nil, fmt.Errorf("root path empty: %s", relPath)
 	}
 
 	// Get the snapshot name from the snapshot ID
 	snapshotName, err := z.getSnapshotPath(snapshotID)
 	if err != nil {
-		return nil, "", err
+		return nil, fmt.Errorf("unable to get snapshot path: %w", err)
 	}
 
-	// Calculate the relative path from the ZFS root to the requested node
-	relPath, err := filepath.Rel(zfsRoot, absPath)
-	if err != nil {
-		return nil, "", err
-	}
-
-	// Construct the path to the snapshot root
-	snapshotRootPath := filepath.Join(zfsRoot, ".zfs", "snapshot", snapshotName)
+	// Calculate the relative snapshotPath from the ZFS root to the requested node
+	snapshotPath := filepath.Join(rootPath, snapshotName)
 
 	// Open the snapshot root
-	snapshotRoot, err := os.OpenRoot(snapshotRootPath)
+	root, err := os.OpenRoot(snapshotPath)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to open snapshot root: %w", err)
+		return nil, fmt.Errorf("unable to open snapshot root: %w", err)
 	}
 
-	// Return the root and the relative path within it
-	// Convert "." to empty string for consistency
-	// if relPath == "." {
-	// 	relPath = ""
-	// }
-
-	return snapshotRoot, relPath, nil
+	return root, nil
 }

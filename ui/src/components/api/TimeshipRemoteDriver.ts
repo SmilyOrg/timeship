@@ -16,6 +16,7 @@ export class TimeshipRemoteDriver extends RemoteDriver {
     this.adapter = config.adapter || 'local';
     this.baseURL = config.baseURL || '';
     this.snapshot = config.snapshot || null;
+    console.log('TimeshipRemoteDriver initialized with adapter:', this.adapter, 'baseURL:', this.baseURL, 'snapshot:', this.snapshot);
   }
 
   /**
@@ -70,8 +71,39 @@ export class TimeshipRemoteDriver extends RemoteDriver {
    */
   async list(params?: { path?: string }): Promise<any> {
     const url = this.buildNodeUrl(params?.path || '');
-    // Access parent's private request method via bracket notation
-    return await (this as any).request(url, { method: 'GET' });
+    console.log('Listing nodes at URL:', url);
+
+    // console.log("Config", this.config);
+    const fullUrl = `${this.config.baseURL}${url}`;
+    const options: RequestInit = { method: 'GET' };
+    const response = await fetch(fullUrl, {
+      ...options,
+      headers: {
+        ...this.getHeaders(),
+        ...(options.headers as Record<string, string>),
+      },
+    });
+
+    if (response.status === 404) {
+        return {
+            dirname: params?.path || '',
+            read_only: false,
+            storages: [this.adapter],
+            files: [
+                {
+                    basename: '[Directory not found]',
+                    extension: "",
+                    file_size: 0,
+                    last_modified: 0,
+                    path: params?.path || '',
+                    type: "dir",
+                    url: "",
+                }
+            ],
+        }
+    }
+
+    return response.json();
   }
 
   /**

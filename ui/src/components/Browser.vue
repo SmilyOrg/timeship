@@ -3,22 +3,24 @@
     <snapshot-list
       v-model="selectedSnapshot">
     </snapshot-list>
-    <vue-finder
-      :key="'vf-' + selectedSnapshot"
-      class="finder"
-      id="vf"
-      ref="vf"
-      :driver="driver"
-    ></vue-finder>
+    <div class="finder">
+      <vue-finder
+        :key="'vf-' + selectedSnapshot"
+        class="finder"
+        id="vf"
+        ref="vf"
+        :driver="driver"
+        @path-change="onPathChange($event)"
+      ></vue-finder>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import SnapshotList from './SnapshotList.vue';
 import { TimeshipRemoteDriver } from './api/TimeshipRemoteDriver';
-// import * as VF from 'vuefinder';
-import { App } from 'vuefinder/'
+import { useLocalStorage } from '@vueuse/core';
 
 const selectedSnapshot = ref<string | null>(null);
 const vf = ref<InstanceType<typeof import('vuefinder').VueFinder> | null>(null);
@@ -44,12 +46,44 @@ const driver = new TimeshipRemoteDriver({
 // console.log(refresh);
 
 
-window.driver = driver; // For debugging
-watch(vf, newVf => {
-  if (newVf) {
-    window.vf = newVf; // For debugging
+const path = ref("");
+
+const configStr = useLocalStorage("vuefinder_config_vf");
+const config = computed(() => {
+  try {
+    return JSON.parse(configStr.value || '{}');
+  } catch (e) {
+    console.error('Failed to parse localStorage for vuefinder_config_vf:', e);
+    return {};
   }
 });
+
+const patchConfig = (newConfig: Record<string, any>) => {
+  const mergedConfig = { ...config.value, ...newConfig };
+  configStr.value = JSON.stringify(mergedConfig);
+};
+
+watch(config, () => {
+  console.log('Local storage updated:', config.value);
+}, { immediate: true });
+
+
+const initialPath = computed(() => {
+  return config.value?.path || "local://";
+});
+
+watch(initialPath, (newPath) => {
+  console.log('Initial path updated:', newPath);
+}, { immediate: true });
+
+const onPathChange = (newPath: string) => {
+  if (path.value === newPath) {
+    return;
+  }
+  console.log('Path changed to:', newPath);
+  path.value = newPath;
+  patchConfig({ path: newPath, initialPath: newPath });
+};
 
 // Watch for snapshot changes and update the driver
 watch(selectedSnapshot, (newSnapshot) => {
@@ -67,11 +101,10 @@ watch(selectedSnapshot, (newSnapshot) => {
   display: flex;
   flex-direction: row;
   gap: 16px;
-  width: 100%;
-  height: 100%;
 }
 
 .finder {
   width: 100%;
+  flex-grow: 1;
 }
 </style>

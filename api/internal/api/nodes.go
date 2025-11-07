@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"math/rand"
 	"net/http"
 	"net/url"
 	"sort"
@@ -39,14 +38,12 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Clean the path - empty path means storage root
-	nodePath := string(path)
-	if nodePath == "/" {
-		nodePath = ""
-	}
-
 	// Create url.URL with adapter prefix
-	vfPath := adapter.AddPrefix(nodePath, string(storage))
+	// vfPath := adapter.AddPrefix(nodePath, string(storage))
+	vfPath := url.URL{
+		Scheme: string(storage),
+		Path:   path,
+	}
 
 	// Add snapshot query parameter if provided
 	if params.Snapshot != nil && *params.Snapshot != "" {
@@ -65,7 +62,7 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 	lister, canList := storageAdapter.(adapter.Lister)
 	reader, canRead := storageAdapter.(adapter.Reader)
 
-	log.Printf("GetStoragesStorageNodesPath: storage=%s, path=%s, wantsFileContent=%v, canList=%v, canRead=%v", storage, nodePath, wantsFileContent, canList, canRead)
+	log.Printf("GetStoragesStorageNodesPath: storage=%s, path=%s, wantsFileContent=%v, canList=%v, canRead=%v", storage, path, wantsFileContent, canList, canRead)
 
 	// First, try to determine if this is a file or directory
 	// We'll attempt to list - if it fails, we'll try to read as a file
@@ -74,14 +71,14 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 		nodes, err := lister.ListContents(vfPath)
 		if err == nil {
 			// It's a directory - return listing
-			s.serveDirectoryListing(w, r, storage, nodePath, nodes, params)
+			s.serveDirectoryListing(w, r, storage, path, nodes, params)
 			return
 		}
 	}
 
 	// If listing failed or client wants file content, try to read as a file
 	if canRead {
-		s.serveFileContent(w, r, storage, nodePath, vfPath, reader, params)
+		s.serveFileContent(w, r, storage, path, vfPath, reader, params)
 		return
 	}
 
@@ -144,7 +141,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 		apiNode := Node{
 			Path:         node.Path.String(),
 			Type:         NodeType(node.Type),
-			Basename:     node.Basename + fmt.Sprintf("%3d", rand.Int31n(100000)),
+			Basename:     node.Basename,
 			Extension:    node.Extension,
 			FileSize:     node.Size,
 			LastModified: node.LastModified,

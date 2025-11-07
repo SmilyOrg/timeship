@@ -1,11 +1,13 @@
 package local
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/smilyorg/timeship/api/internal/adapter"
@@ -38,41 +40,58 @@ func (a *Adapter) Close() error {
 	return a.root.Close()
 }
 
+func (a *Adapter) urlToRelPath(vfPath url.URL) (string, error) {
+	if vfPath.Scheme != adapterName {
+		return "", fmt.Errorf("unexpected adapter scheme: %s", vfPath.Scheme)
+	}
+	path := vfPath.Path
+	if path == "" {
+		path = "."
+	}
+	if !filepath.IsLocal(path) {
+		return "", fmt.Errorf("non-local paths are not supported: %s", path)
+	}
+	path = filepath.Clean(path)
+	return path, nil
+}
+
 // open opens a file or directory, handling both normal paths and snapshots
 // For snapshots: opens from the snapshot directory
 // For normal paths: opens from the adapter's root
 // The caller is responsible for closing the returned file
 func (a *Adapter) open(vfPath url.URL) (*os.File, error) {
-	snapshotID := vfPath.Query().Get("snapshot")
-	if snapshotID != "" {
-		root, relPath, err := a.zfs.OpenSnapshotRoot(vfPath, snapshotID)
-		if err != nil {
-			return nil, err
-		}
-		defer root.Close()
-		return root.Open(relPath)
+	relPath, err := a.urlToRelPath(vfPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to convert path: %w", err)
 	}
-
-	// Normal path
-	filePath := adapter.StripPrefix(vfPath, adapterName)
-	return a.root.Open(filePath)
+	snapshotID := vfPath.Query().Get("snapshot")
+	if snapshotID == "" {
+		return a.root.Open(relPath)
+	}
+	root, err := a.zfs.SnapshotRoot(relPath, snapshotID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open: %w", err)
+	}
+	defer root.Close()
+	return root.Open(relPath)
 }
 
 // stat gets file info, handling both normal paths and snapshots
 func (a *Adapter) stat(vfPath url.URL) (os.FileInfo, error) {
-	snapshotID := vfPath.Query().Get("snapshot")
-	if snapshotID != "" {
-		root, relPath, err := a.zfs.OpenSnapshotRoot(vfPath, snapshotID)
-		if err != nil {
-			return nil, err
-		}
-		defer root.Close()
-		return root.Stat(relPath)
+	relPath, err := a.urlToRelPath(vfPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to convert path: %w", err)
 	}
-
-	// Normal path
-	filePath := adapter.StripPrefix(vfPath, adapterName)
-	return a.root.Stat(filePath)
+	snapshotID := vfPath.Query().Get("snapshot")
+	if snapshotID == "" {
+		return a.root.Stat(relPath)
+	}
+	root, err := a.zfs.SnapshotRoot(relPath, snapshotID)
+	if err != nil {
+		return nil, fmt.Errorf("unable to open: %w", err)
+	}
+	defer root.Close()
+	return root.Stat(relPath)
 }
 
 // ListContents implements adapter.Lister
@@ -92,10 +111,14 @@ func (a *Adapter) ListContents(vfPath url.URL) ([]adapter.FileNode, error) {
 	nodes := make([]adapter.FileNode, 0, len(entries))
 	for _, info := range entries {
 		// Build the full path with adapter prefix
-		fullPath := adapter.JoinPath(vfPath, info.Name(), adapterName)
+		// fullPath := adapter.JoinPath(vfPath, info.Name(), adapterName)
+		// vfPath.JoinPath(f.Name(), )
+		filePath := vfPath
+		filePath.Path = path.Join(vfPath.Path, info.Name())
+		filePath.RawQuery = ""
 
 		node := adapter.FileNode{
-			Path:         fullPath,
+			Path:         filePath,
 			Basename:     info.Name(),
 			LastModified: info.ModTime().Unix(),
 		}
@@ -148,37 +171,11 @@ func (a *Adapter) ReadStream(vfPath url.URL) (io.ReadCloser, error) {
 	return a.open(vfPath)
 }
 
-// FileExists implements adapter.Existence
-func (a *Adapter) FileExists(vfPath url.URL) (bool, error) {
-	filePath := adapter.StripPrefix(vfPath, adapterName)
-
-	info, err := a.root.Stat(filePath)
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	return !info.IsDir(), nil
-}
-
-// DirectoryExists implements adapter.Existence
-func (a *Adapter) DirectoryExists(vfPath url.URL) (bool, error) {
-	dirPath := adapter.StripPrefix(vfPath, adapterName)
-
-	info, err := a.root.Stat(dirPath)
-	if os.IsNotExist(err) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	return info.IsDir(), nil
-}
-
 // GetSnapshots implements adapter.SnapshotProvider
-func (a *Adapter) ListSnapshots(path url.URL) ([]adapter.Snapshot, error) {
-	return a.zfs.Snapshots(path)
+func (a *Adapter) ListSnapshots(vfPath url.URL) ([]adapter.Snapshot, error) {
+	relPath, err := a.urlToRelPath(vfPath)
+	if err != nil {
+		return nil, fmt.Errorf("unable to convert path: %w", err)
+	}
+	return a.zfs.Snapshots(relPath)
 }

@@ -3,8 +3,6 @@ package adapter
 import (
 	"io"
 	"net/url"
-	"path/filepath"
-	"strings"
 )
 
 // Path Handling Convention:
@@ -64,79 +62,6 @@ type SnapshotMetadata map[string]interface{}
 // All methods are optional - adapters implement only the capabilities they support
 type Adapter interface {
 	// Adapter is a marker interface - no required methods
-}
-
-// Path Helper Functions
-//
-// These functions help adapters convert between VueFinder paths (with adapter prefix)
-// and filesystem-specific paths (without prefix).
-
-// StripPrefix removes the adapter prefix from a path and returns "." for empty paths.
-// This handles the common case where filesystem operations require "." for the root directory.
-// Examples:
-//   - StripPrefix("local://documents/file.txt", "local") -> "documents/file.txt"
-//   - StripPrefix("local://", "local") -> "."
-//   - StripPrefix("", "local") -> "."
-//   - StripPrefix("documents/file.txt", "local") -> "documents/file.txt" (no prefix to strip)
-func StripPrefix(vfPath url.URL, adapterName string) string {
-	fsPath := filepath.Clean(vfPath.Path)
-	return strings.TrimPrefix(fsPath, "/")
-}
-
-// AddPrefix adds an adapter prefix to a filesystem path.
-// This is the inverse of StripPrefix.
-// Examples:
-//   - AddPrefix("documents/file.txt", "local") -> local://documents/file.txt
-//   - AddPrefix("", "local") -> local://
-func AddPrefix(fsPath, adapterName string) url.URL {
-	// If the path already has the correct prefix, parse and return it
-	if strings.HasPrefix(fsPath, adapterName+"://") {
-		u, err := url.Parse(fsPath)
-		if err == nil {
-			return *u
-		}
-	}
-
-	// Ensure path doesn't start with / (which would create scheme:///path)
-	cleanPath := strings.TrimPrefix(fsPath, "/")
-
-	// For empty paths, use Opaque to get "scheme://" format
-	if cleanPath == "" {
-		return url.URL{
-			Scheme: adapterName,
-			Opaque: "//",
-		}
-	}
-
-	return url.URL{
-		Scheme: adapterName,
-		Host:   "",
-		Path:   cleanPath,
-	}
-}
-
-// JoinPath joins path components and returns a url.URL with the adapter prefix.
-// Examples:
-//   - JoinPath("local://documents", "file.txt", "local") -> local://documents/file.txt
-//   - JoinPath("local://", "file.txt", "local") -> local://file.txt
-func JoinPath(basePath url.URL, component, adapterName string) url.URL {
-	// Clean the base path (remove leading / and trailing /)
-	cleanBase := strings.TrimPrefix(basePath.Path, "/")
-	cleanBase = strings.TrimSuffix(cleanBase, "/")
-
-	// Join paths
-	var joined string
-	if cleanBase == "" {
-		joined = component
-	} else {
-		joined = cleanBase + "/" + component
-	}
-
-	return url.URL{
-		Scheme: adapterName,
-		Host:   "",
-		Path:   joined,
-	}
 }
 
 // Optional capability interfaces that adapters can implement
