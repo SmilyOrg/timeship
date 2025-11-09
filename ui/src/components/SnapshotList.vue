@@ -12,17 +12,17 @@
         <tr
           v-for="snapshot in snapshots"
           :key="snapshot.id"
-          :class="{ selected: modelValue === snapshot.id }"
+          :class="{ selected: snapshot.selected }"
         >
           <td>
             <input
               type="checkbox"
               :id="snapshot.id"
-              :checked="modelValue === snapshot.id"
+              :checked="snapshot.selected"
               @change="select(($event.target as HTMLInputElement).checked ? snapshot : null)"
             ></input>
             <label :for="snapshot.id">
-              {{ formatTimestamp(snapshot.timestamp) }}
+              {{ snapshot.title }}
             </label>
           </td>
           <td class="type">
@@ -38,16 +38,16 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
-import { useApi } from './api/api';
+import { useApi, type Snapshot as ApiSnapshot } from './api/api';
 import { format } from 'date-fns';
 
 interface Snapshot {
   id: string;
-  timestamp: string;
-  type: string;
+  title: string;
+  selected?: boolean;
 }
 
-defineProps<{
+const props = defineProps<{
   modelValue?: string | null;
 }>();
 
@@ -60,14 +60,32 @@ const {
 } = useApi("/storages/local/snapshots");
 
 const select = (snapshot: Snapshot | null) => {
-  emit('update:modelValue', snapshot?.id ?? null);
+  if (!snapshot?.id || snapshot?.id === 'current') {
+    emit('update:modelValue', null);
+    return;
+  }
+  emit('update:modelValue', snapshot.id);
 };
 
+const current = computed((): Snapshot => ({
+  id: 'current',
+  title: 'Current',
+  selected: props.modelValue === null,
+}));
+
 const snapshots = computed(() => {
-  return data.value?.snapshots || [];
+  const apiSnapshots = data.value?.snapshots || [];
+  const snapshots = apiSnapshots.map((s: ApiSnapshot) => ({
+    id: s.id,
+    title: formatTimestamp(s.timestamp),
+    type: s.type,
+    selected: props.modelValue === s.id,
+  }));
+  return [current.value, ...snapshots];
 });
 
 const formatTimestamp = (timestamp: string) => {
+  if (!timestamp) return 'Current';
   const date = new Date(parseInt(timestamp, 10) * 1000);
   // return format(date, "HH:mm:ss dd LLL yyyy");
   return format(date, "dd LLL yyyy HH:mm:ss");
