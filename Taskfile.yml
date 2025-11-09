@@ -1,0 +1,57 @@
+# Commands to build, run, and package the app
+#
+# See https://taskfile.dev/ for instructions on how to use Taskfile.yml
+#
+# Run `task` to see the list of tasks
+version: '3'
+
+tasks:
+
+  build:ui:
+    desc: Build the UI frontend
+    dir: ui
+    cmds:
+      - npm install
+      - npm run build -- --clearScreen=false -l warn
+
+  build:api:
+    desc: Build the API
+    dir: api
+    sources:
+      - '**/*.go'
+      - 'go.mod'
+      - '**/*.yaml'
+      - '**/*.syso'
+    cmds:
+      - go build
+
+  run:api:
+    desc: Run the API
+    dir: api
+    cmds:
+      - ./api
+
+  build:run:api:
+    desc: Build and run the API
+    dir: api
+    cmds:
+      - task: build:api
+      - task: run:api
+
+  dev:
+    desc: Run the API and UI in watch mode
+    deps:
+      - ui
+      - api
+
+  ui:
+    desc: Run the UI in watch mode
+    dir: ui
+    cmds:
+      - npm run dev
+
+  api:
+    desc: Run the API in watch mode
+    dir: api
+    cmds:
+      - watchexec --exts go -r task build:run:api
