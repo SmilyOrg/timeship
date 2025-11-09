@@ -54,7 +54,7 @@ func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.
 	}
 
 	// Apply pagination (limit and offset)
-	limit := 50
+	limit := 1000
 	if params.Limit != nil {
 		limit = int(*params.Limit)
 	}

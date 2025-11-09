@@ -216,6 +216,8 @@ const formatTimestamp = (timestamp: string) => {
 
 .snapshot-container {
   position: relative;
+  max-height: 90vh;
+  overflow-y: scroll;
 }
 
 .selection-indicator {
@@ -239,6 +241,13 @@ table {
   position: relative;
   z-index: 1;
   background: transparent;
+}
+
+thead {
+  position: sticky;
+  top: 0;
+  background-color: white;
+  z-index: 2;
 }
 
 tbody {
