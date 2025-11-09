@@ -50,7 +50,9 @@ import { format } from 'date-fns';
 interface Snapshot {
   id: string;
   title: string;
+  type?: string;
   selected?: boolean;
+  timestamp?: string;
 }
 
 const props = defineProps<{
@@ -77,6 +79,19 @@ const select = (snapshot: Snapshot | null) => {
     return;
   }
   emit('update:modelValue', snapshot.id);
+};
+
+const getSpaceFromTimeRange = (a: Date, b: Date): number => {
+  const diffMs = b.getTime() - a.getTime();
+  const seconds = diffMs / 1000;
+  
+  const spaceMin = 0;
+  const spaceMax = 40;
+  const multiply = 0.01;
+  const power = 0.62;
+  const space = Math.max(Math.min(Math.pow(multiply * seconds, power), spaceMax), spaceMin);
+  
+  return space;
 };
 
 const getSnapshotFromY = (clientY: number): Snapshot | null => {
@@ -189,25 +204,101 @@ const current = computed((): Snapshot => ({
   id: 'current',
   title: 'Current',
   selected: props.modelValue === null,
+  timestamp: undefined,
 }));
 
 const snapshots = computed(() => {
   const apiSnapshots = data.value?.snapshots || [];
-  const snapshots = apiSnapshots.map((s: ApiSnapshot) => ({
+  const currentYear = new Date().getFullYear();
+  
+  // Parse all snapshots with their dates
+  interface SnapshotWithDate {
+    id: string;
+    type: string;
+    selected: boolean;
+    timestamp: string;
+    date: Date;
+  }
+  
+  const snapshotsWithDates: SnapshotWithDate[] = apiSnapshots.map((s: ApiSnapshot) => ({
     id: s.id,
-    title: formatTimestamp(s.timestamp),
     type: s.type,
     selected: props.modelValue === s.id,
+    timestamp: s.timestamp,
+    date: new Date(parseInt(s.timestamp, 10) * 1000),
   }));
-  return [current.value, ...snapshots];
+  
+  // Group by date to find duplicates
+  const dateGroups = new Map<string, number>();
+  snapshotsWithDates.forEach((s: SnapshotWithDate) => {
+    const dateKey = format(s.date, 'yyyy-MM-dd');
+    dateGroups.set(dateKey, (dateGroups.get(dateKey) || 0) + 1);
+  });
+  
+  // Group by date+time (including seconds) to find time duplicates
+  const timeGroups = new Map<string, number>();
+  snapshotsWithDates.forEach((s: SnapshotWithDate) => {
+    const dateKey = format(s.date, 'yyyy-MM-dd');
+    if (dateGroups.get(dateKey)! > 1) {
+      const timeKey = format(s.date, 'yyyy-MM-dd HH:mm');
+      timeGroups.set(timeKey, (timeGroups.get(timeKey) || 0) + 1);
+    }
+  });
+  
+  // Format each snapshot and calculate margin based on time differences
+  const formattedSnapshots = snapshotsWithDates.map((s: SnapshotWithDate, index: number) => {
+    const dateKey = format(s.date, 'yyyy-MM-dd');
+    const timeKey = format(s.date, 'yyyy-MM-dd HH:mm');
+    const hasDuplicateDate = dateGroups.get(dateKey)! > 1;
+    const hasDuplicateTime = timeGroups.get(timeKey)! > 1;
+    
+    // Calculate margin bottom based on time difference to next snapshot
+    let marginBottom = 0;
+    if (index < snapshotsWithDates.length - 1) {
+      const nextSnapshot = snapshotsWithDates[index + 1];
+      if (nextSnapshot) {
+        marginBottom = getSpaceFromTimeRange(nextSnapshot.date, s.date);
+      }
+    }
+    
+    return {
+      id: s.id,
+      title: formatTimestamp(s.date, currentYear, hasDuplicateDate, hasDuplicateTime),
+      type: s.type,
+      selected: s.selected,
+      timestamp: s.timestamp,
+      marginBottom,
+    };
+  });
+  
+  return [current.value, ...formattedSnapshots];
 });
 
-const formatTimestamp = (timestamp: string) => {
-  if (!timestamp) return 'Current';
-  const date = new Date(parseInt(timestamp, 10) * 1000);
-  // return format(date, "HH:mm:ss dd LLL yyyy");
-  return format(date, "dd LLL yyyy HH:mm:ss");
-  // return format(date, "dd LLL yyyy");
+const formatTimestamp = (date: Date, currentYear: number, hasDuplicateDate: boolean, hasDuplicateTime: boolean) => {
+  const year = date.getFullYear();
+  const day = date.getDate();
+  const month = format(date, 'MMM');
+  
+  // Format day with leading space for single digits
+  const dayStr = day < 10 ? `0${day}` : `${day}`;
+  
+  // Build the date part
+  let result = `${dayStr} ${month}`;
+  
+  // Add year if not current year
+  if (year !== currentYear) {
+    result += ` ${year}`;
+  }
+  
+  // Add time if there are multiple snapshots on the same date
+  if (hasDuplicateDate) {
+    const time = hasDuplicateTime 
+      ? format(date, 'HH:mm:ss')  // Include seconds to disambiguate
+      : format(date, 'HH:mm');
+    result += ` • ${time}`;
+  }
+  
+  return result;
 };
 
 </script>
@@ -281,6 +372,9 @@ td label {
   margin: 0;
   line-height: 1.5;
   pointer-events: none;
+  font-size: 1.2em;
+  font-family: monospace;
+  font-variant-numeric: tabular-nums;
 }
 
 th.type {

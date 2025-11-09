@@ -104,7 +104,6 @@ watch(selectedSnapshot, (newSnapshot) => {
 }
 
 .finder {
-  width: 100%;
   flex-grow: 1;
 }
 </style>
