@@ -24,7 +24,6 @@
           v-for="snapshot in snapshots"
           :key="snapshot.id"
           :data-snapshot-id="snapshot.id"
-          ref="rowRefs"
         >
           <td>
             <label>
@@ -47,12 +46,18 @@ import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
 import { useApi, type Snapshot as ApiSnapshot } from './api/api';
 import { format } from 'date-fns';
 
-interface Snapshot {
+interface SnapshotWithDate extends ApiSnapshot {
+  date: Date;
+  selected: boolean;
+}
+
+interface FormattedSnapshot {
   id: string;
   title: string;
-  type?: string;
-  selected?: boolean;
+  type: string;
+  selected: boolean;
   timestamp?: string;
+  marginBottom?: number;
 }
 
 const props = defineProps<{
@@ -63,17 +68,14 @@ const emit = defineEmits<{
   'update:modelValue': [value: string | null];
 }>();
 
-const {
-  data,
-} = useApi("/storages/local/snapshots");
+const { data } = useApi("/storages/local/snapshots");
 
 const tableRef = ref<HTMLElement | null>(null);
-const rowRefs = ref<HTMLElement[]>([]);
 const isDragging = ref(false);
 const selectionTop = ref(-1);
 const selectionHeight = ref(0);
 
-const select = (snapshot: Snapshot | null) => {
+const select = (snapshot: FormattedSnapshot | null) => {
   if (!snapshot?.id || snapshot?.id === 'current') {
     emit('update:modelValue', null);
     return;
@@ -94,7 +96,7 @@ const getSpaceFromTimeRange = (a: Date, b: Date): number => {
   return space;
 };
 
-const getSnapshotFromY = (clientY: number): Snapshot | null => {
+const getSnapshotFromY = (clientY: number): FormattedSnapshot | null => {
   if (!tableRef.value) return null;
   
   const rows = tableRef.value.querySelectorAll('tbody tr');
@@ -200,9 +202,10 @@ onUnmounted(() => {
   document.removeEventListener('touchend', stopDrag);
 });
 
-const current = computed((): Snapshot => ({
+const current = computed((): FormattedSnapshot => ({
   id: 'current',
   title: 'Current',
+  type: 'current',
   selected: props.modelValue === null,
   timestamp: undefined,
 }));
@@ -212,53 +215,38 @@ const snapshots = computed(() => {
   const currentYear = new Date().getFullYear();
   
   // Parse all snapshots with their dates
-  interface SnapshotWithDate {
-    id: string;
-    type: string;
-    selected: boolean;
-    timestamp: string;
-    date: Date;
-  }
-  
   const snapshotsWithDates: SnapshotWithDate[] = apiSnapshots.map((s: ApiSnapshot) => ({
-    id: s.id,
-    type: s.type,
+    ...s,
     selected: props.modelValue === s.id,
-    timestamp: s.timestamp,
     date: new Date(parseInt(s.timestamp, 10) * 1000),
   }));
   
-  // Group by date to find duplicates
-  const dateGroups = new Map<string, number>();
-  snapshotsWithDates.forEach((s: SnapshotWithDate) => {
-    const dateKey = format(s.date, 'yyyy-MM-dd');
-    dateGroups.set(dateKey, (dateGroups.get(dateKey) || 0) + 1);
-  });
-  
-  // Group by date+time (including seconds) to find time duplicates
-  const timeGroups = new Map<string, number>();
-  snapshotsWithDates.forEach((s: SnapshotWithDate) => {
-    const dateKey = format(s.date, 'yyyy-MM-dd');
-    if (dateGroups.get(dateKey)! > 1) {
-      const timeKey = format(s.date, 'yyyy-MM-dd HH:mm');
-      timeGroups.set(timeKey, (timeGroups.get(timeKey) || 0) + 1);
-    }
-  });
-  
   // Format each snapshot and calculate margin based on time differences
-  const formattedSnapshots = snapshotsWithDates.map((s: SnapshotWithDate, index: number) => {
-    const dateKey = format(s.date, 'yyyy-MM-dd');
-    const timeKey = format(s.date, 'yyyy-MM-dd HH:mm');
-    const hasDuplicateDate = dateGroups.get(dateKey)! > 1;
-    const hasDuplicateTime = timeGroups.get(timeKey)! > 1;
+  const formattedSnapshots: FormattedSnapshot[] = snapshotsWithDates.map((s, index) => {
+    const dayTimestamp = Math.floor(new Date(s.date).setHours(0, 0, 0, 0) / 86400000);
+    const minuteTimestamp = Math.floor(s.date.getTime() / 60000);
+    
+    // Check prev/next snapshots to determine if there are duplicates on the same day
+    const prevSnapshot = index > 0 ? snapshotsWithDates[index - 1] : null;
+    const nextSnapshot = index < snapshotsWithDates.length - 1 ? snapshotsWithDates[index + 1] : null;
+    
+    const prevDayTimestamp = prevSnapshot ? Math.floor(new Date(prevSnapshot.date).setHours(0, 0, 0, 0) / 86400000) : null;
+    const nextDayTimestamp = nextSnapshot ? Math.floor(new Date(nextSnapshot.date).setHours(0, 0, 0, 0) / 86400000) : null;
+    
+    const hasDuplicateDate = dayTimestamp === prevDayTimestamp || dayTimestamp === nextDayTimestamp;
+    
+    // Check if there are duplicates at the same minute (only if there's a duplicate date)
+    let hasDuplicateTime = false;
+    if (hasDuplicateDate) {
+      const prevMinuteTimestamp = prevSnapshot ? Math.floor(prevSnapshot.date.getTime() / 60000) : null;
+      const nextMinuteTimestamp = nextSnapshot ? Math.floor(nextSnapshot.date.getTime() / 60000) : null;
+      hasDuplicateTime = minuteTimestamp === prevMinuteTimestamp || minuteTimestamp === nextMinuteTimestamp;
+    }
     
     // Calculate margin bottom based on time difference to next snapshot
     let marginBottom = 0;
-    if (index < snapshotsWithDates.length - 1) {
-      const nextSnapshot = snapshotsWithDates[index + 1];
-      if (nextSnapshot) {
-        marginBottom = getSpaceFromTimeRange(nextSnapshot.date, s.date);
-      }
+    if (nextSnapshot) {
+      marginBottom = getSpaceFromTimeRange(nextSnapshot.date, s.date);
     }
     
     return {
