@@ -9,13 +9,12 @@
       }"
     ></div>
     <table ref="tableRef">
-      <thead>
+      <!-- <thead>
         <tr>
-          <!-- <th>Name</th> -->
-          <th>Snapshots</th>
+          <th>Time</th>
           <th class="type">Type</th>
         </tr>
-      </thead>
+      </thead> -->
       <tbody
         @mousedown="startDrag"
         @touchstart="startDrag"
@@ -205,7 +204,7 @@ onUnmounted(() => {
 const current = computed((): FormattedSnapshot => ({
   id: 'current',
   title: 'Current',
-  type: 'current',
+  type: '',
   selected: props.modelValue === null,
   timestamp: undefined,
 }));
@@ -365,13 +364,17 @@ td label {
   font-variant-numeric: tabular-nums;
 }
 
-th.type {
+/* th.type {
   visibility: hidden;
-}
+} */
 
-td.type {
+td.type, th.type {
   text-align: right;
   color: #888;
+}
+
+td.type label {
+  color: inherit;
 }
 
 table td {
