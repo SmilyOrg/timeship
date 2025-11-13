@@ -124,6 +124,14 @@ components:
           items:
             type: string
           example: ['local', 's3', 'minio']
+        total_size:
+          type: integer
+          format: int64
+          description: |
+            Total size in bytes of all files in this directory and subdirectories.
+            Only included when requested via fields=(total_size) query parameter.
+            Computed using parallel directory traversal for optimal performance.
+          example: 104857600
     
     CreateNodeRequest:
       type: object
@@ -389,6 +397,21 @@ components:
         default: asc
       description: Sort order
       
+    getNodesFields:
+      name: fields
+      in: query
+      schema:
+        type: string
+      description: |
+        Comma-separated list of optional fields to include in the response.
+        Each field must be wrapped in parentheses.
+        
+        Available fields:
+        - (total_size): Include total size of directory and all subdirectories
+        
+        Example: fields=(total_size)
+      example: '(total_size)'
+      
     getNodesSnapshot:
       name: snapshot
       in: query
@@ -633,6 +656,7 @@ paths:
         - $ref: '#/components/parameters/getNodesDownload'
         - $ref: '#/components/parameters/getNodesSort'
         - $ref: '#/components/parameters/getNodesOrder'
+        - $ref: '#/components/parameters/getNodesFields'
         - $ref: '#/components/parameters/getNodesSnapshot'
       responses:
         '200':
@@ -713,6 +737,7 @@ paths:
         - $ref: '#/components/parameters/getNodesDownload'
         - $ref: '#/components/parameters/getNodesSort'
         - $ref: '#/components/parameters/getNodesOrder'
+        - $ref: '#/components/parameters/getNodesFields'
         - $ref: '#/components/parameters/getNodesSnapshot'
       responses:
         '200':

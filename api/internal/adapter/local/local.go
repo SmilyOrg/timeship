@@ -17,8 +17,9 @@ const adapterName = "local"
 
 // Adapter implements adapter interfaces for local filesystem
 type Adapter struct {
-	root *os.Root
-	zfs  *ZFS
+	root     *os.Root
+	rootPath string
+	zfs      *ZFS
 }
 
 // New creates a new local filesystem adapter
@@ -30,14 +31,20 @@ func New(rootPath string) (*Adapter, error) {
 	}
 
 	return &Adapter{
-		root: root,
-		zfs:  NewZFS(rootPath),
+		root:     root,
+		rootPath: rootPath,
+		zfs:      NewZFS(rootPath),
 	}, nil
 }
 
 // Close closes the root directory handle
 func (a *Adapter) Close() error {
 	return a.root.Close()
+}
+
+// GetRootPath returns the root path of this adapter
+func (a *Adapter) GetRootPath() string {
+	return a.rootPath
 }
 
 func (a *Adapter) urlToRelPath(vfPath url.URL) (string, error) {

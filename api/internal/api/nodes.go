@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
 	"net/http"
 	"net/url"
 	"sort"
 	"strings"
+	"sync/atomic"
 
+	"github.com/charlievieth/fastwalk"
 	"github.com/smilyorg/timeship/api/internal/adapter"
 )
 
@@ -23,6 +26,7 @@ func (s *Server) GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request,
 		Download: params.Download,
 		Sort:     (*GetStoragesStorageNodesPathParamsSort)(params.Sort),
 		Order:    (*GetStoragesStorageNodesPathParamsOrder)(params.Order),
+		Fields:   params.Fields,
 		Snapshot: params.Snapshot,
 	}
 	s.GetStoragesStorageNodesPath(w, r, storage, "", pathParams)
@@ -71,7 +75,7 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 		nodes, err := lister.ListContents(vfPath)
 		if err == nil {
 			// It's a directory - return listing
-			s.serveDirectoryListing(w, r, storage, path, nodes, params)
+			s.serveDirectoryListing(w, r, storage, path, nodes, params, storageAdapter)
 			return
 		}
 	}
@@ -87,7 +91,7 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 }
 
 // serveDirectoryListing returns directory listing as JSON
-func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, storage Storage, path string, nodes []adapter.FileNode, params GetStoragesStorageNodesPathParams) {
+func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, storage Storage, path string, nodes []adapter.FileNode, params GetStoragesStorageNodesPathParams, storageAdapter adapter.Adapter) {
 	// Sort nodes: directories first, then by name
 	sort.Slice(nodes, func(i, j int) bool {
 		if nodes[i].Type != nodes[j].Type {
@@ -176,6 +180,21 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 		Storages: storages,
 	}
 
+	// Handle optional fields
+	if params.Fields != nil && *params.Fields != "" {
+		fields := *params.Fields
+		// Parse fields parameter - looking for (total_size)
+		if strings.Contains(fields, "(total_size)") {
+			// Compute total size if requested
+			totalSize, err := s.computeTotalSize(storageAdapter, storage, path)
+			if err != nil {
+				log.Printf("Failed to compute total_size for %s://%s: %v", storage, path, err)
+			} else {
+				response.TotalSize = &totalSize
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
@@ -235,4 +254,55 @@ func getBasename(path string) string {
 		return ""
 	}
 	return parts[len(parts)-1]
+}
+
+// computeTotalSize computes the total size of all files in a directory tree
+// using fastwalk for parallel traversal
+func (s *Server) computeTotalSize(storageAdapter adapter.Adapter, storage Storage, path string) (int64, error) {
+	// We need a concrete type that has a root path
+	// For now, we'll check if it's a local adapter
+	type localAdapter interface {
+		GetRootPath() string
+	}
+
+	la, ok := storageAdapter.(localAdapter)
+	if !ok {
+		return 0, fmt.Errorf("storage adapter does not support total size computation")
+	}
+
+	rootPath := la.GetRootPath()
+	targetPath := rootPath
+	if path != "" {
+		targetPath = rootPath + "/" + path
+	}
+
+	var totalSize atomic.Int64
+
+	conf := fastwalk.Config{
+		Follow: false, // Don't follow symlinks to avoid cycles
+	}
+
+	walkFn := func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			// Log but don't stop on individual errors
+			log.Printf("Error walking %s: %v", path, err)
+			return nil
+		}
+
+		// Only count regular files
+		if d.Type().IsRegular() {
+			if info, err := d.Info(); err == nil {
+				totalSize.Add(info.Size())
+			}
+		}
+
+		return nil
+	}
+
+	err := fastwalk.Walk(&conf, targetPath, walkFn)
+	if err != nil {
+		return 0, fmt.Errorf("failed to walk directory: %w", err)
+	}
+
+	return totalSize.Load(), nil
 }

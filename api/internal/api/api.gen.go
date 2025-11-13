@@ -184,6 +184,11 @@ type NodeList struct {
 
 	// Storages Available storage identifiers
 	Storages []string `json:"storages"`
+
+	// TotalSize Total size in bytes of all files in this directory and subdirectories.
+	// Only included when requested via fields=(total_size) query parameter.
+	// Computed using parallel directory traversal for optimal performance.
+	TotalSize *int64 `json:"total_size,omitempty"`
 }
 
 // NodeSnapshotsList Response for snapshots endpoint.
@@ -248,6 +253,9 @@ type GetNodesChildren = bool
 
 // GetNodesDownload defines model for getNodesDownload.
 type GetNodesDownload = bool
+
+// GetNodesFields defines model for getNodesFields.
+type GetNodesFields = string
 
 // GetNodesFilter defines model for getNodesFilter.
 type GetNodesFilter = string
@@ -389,6 +397,15 @@ type GetStoragesStorageNodesParams struct {
 	// Order Sort order
 	Order *GetStoragesStorageNodesParamsOrder `form:"order,omitempty" json:"order,omitempty"`
 
+	// Fields Comma-separated list of optional fields to include in the response.
+	// Each field must be wrapped in parentheses.
+	//
+	// Available fields:
+	// - (total_size): Include total size of directory and all subdirectories
+	//
+	// Example: fields=(total_size)
+	Fields *GetNodesFields `form:"fields,omitempty" json:"fields,omitempty"`
+
 	// Snapshot Snapshot identifier in format "type:backend-id" (e.g., "zfs:tank@daily-2024-10-28").
 	// When provided, returns the node as it existed in that snapshot.
 	Snapshot *GetNodesSnapshot `form:"snapshot,omitempty" json:"snapshot,omitempty"`
@@ -437,6 +454,15 @@ type GetStoragesStorageNodesPathParams struct {
 
 	// Order Sort order
 	Order *GetStoragesStorageNodesPathParamsOrder `form:"order,omitempty" json:"order,omitempty"`
+
+	// Fields Comma-separated list of optional fields to include in the response.
+	// Each field must be wrapped in parentheses.
+	//
+	// Available fields:
+	// - (total_size): Include total size of directory and all subdirectories
+	//
+	// Example: fields=(total_size)
+	Fields *GetNodesFields `form:"fields,omitempty" json:"fields,omitempty"`
 
 	// Snapshot Snapshot identifier in format "type:backend-id" (e.g., "zfs:tank@daily-2024-10-28").
 	// When provided, returns the node as it existed in that snapshot.
@@ -893,6 +919,14 @@ func (siw *ServerInterfaceWrapper) GetStoragesStorageNodes(w http.ResponseWriter
 		return
 	}
 
+	// ------------- Optional query parameter "fields" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "fields", r.URL.Query(), &params.Fields)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "fields", Err: err})
+		return
+	}
+
 	// ------------- Optional query parameter "snapshot" -------------
 
 	err = runtime.BindQueryParameter("form", true, false, "snapshot", r.URL.Query(), &params.Snapshot)
@@ -1061,6 +1095,14 @@ func (siw *ServerInterfaceWrapper) GetStoragesStorageNodesPath(w http.ResponseWr
 	err = runtime.BindQueryParameter("form", true, false, "order", r.URL.Query(), &params.Order)
 	if err != nil {
 		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "order", Err: err})
+		return
+	}
+
+	// ------------- Optional query parameter "fields" -------------
+
+	err = runtime.BindQueryParameter("form", true, false, "fields", r.URL.Query(), &params.Fields)
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "fields", Err: err})
 		return
 	}
 
