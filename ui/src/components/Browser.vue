@@ -3,14 +3,20 @@
     <snapshot-list
       v-model="selectedSnapshot">
     </snapshot-list>
-    <file-table
-      class="finder"
-      :nodes="nodes"
-      :loading="isLoading"
-      :error="error?.message"
-      @navigate="onPathChange($event)"
-      @update:selection="selectedFiles = $event"
-    ></file-table>
+    <div class="explorer">
+      <breadcrumbs
+        :items="breadcrumbItems"
+        @navigate="onPathChange($event.href || '')"
+      ></breadcrumbs>
+      <file-table
+        class="file-table"
+        :nodes="nodes"
+        :loading="isLoading"
+        :error="error?.message"
+        @navigate="onPathChange($event)"
+        @update:selection="selectedFiles = $event"
+      ></file-table>
+    </div>
   </div>
 </template>
 
@@ -18,12 +24,28 @@
 import { computed, ref, watch } from 'vue';
 import SnapshotList from './SnapshotList.vue';
 import FileTable from './FileTable.vue';
+import Breadcrumbs from './Breadcrumbs.vue';
 import { useApi } from './api/api';
 
 const selectedSnapshot = ref<string | null>(null);
 const selectedFiles = ref<string[]>([]);
 
 const path = ref("local://");
+
+// Compute breadcrumb items from path
+const breadcrumbItems = computed(() => {
+  return [
+    { text: 'Storage', href: 'local://', active: path.value === 'local://' },
+    ...path.value.split('/').slice(2).map((part, index, arr) => {
+      const isActive = index === arr.length - 1;
+      return {
+        text: part,
+        href: `local://${arr.slice(0, index + 1).join('/')}`,
+        active: isActive,
+      };
+    }),
+  ];
+});
 
 // Parse path to extract storage and path components
 const parsedPath = computed(() => {
@@ -79,7 +101,10 @@ const onPathChange = (newPath: string) => {
   gap: 16px;
 }
 
-.finder {
+.explorer {
   flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 </style>

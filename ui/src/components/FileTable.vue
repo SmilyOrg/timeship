@@ -274,7 +274,7 @@ tr.is-selected:hover {
 
 .empty-icon {
   font-size: 64px;
-  margin-bottom: 16px;
+  height: 64px;
 }
 
 .empty-message {

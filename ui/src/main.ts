@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import './style.css'
 import 'fomantic-ui-css/semantic.min.css';
+import '@fontsource/kanit/700-italic.css';
 import App from './App.vue'
 
 import { VueQueryPlugin } from '@tanstack/vue-query'

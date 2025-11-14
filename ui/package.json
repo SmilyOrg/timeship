@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@fontsource/kanit": "^5.2.8",
     "@tanstack/vue-query": "^5.90.5",
     "@vueuse/core": "^14.0.0",
     "date-fns": "^4.1.0",
