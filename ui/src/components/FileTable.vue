@@ -47,6 +47,7 @@
 import { ref, watch } from 'vue';
 import type { Node } from './api/api';
 import { useFocus } from '@vueuse/core';
+import { format } from 'date-fns';
 
 const props = withDefaults(defineProps<{
   nodes: Node[];
@@ -93,10 +94,7 @@ function formatSize(bytes: number): string {
 // Format date
 function formatDate(timestamp: number): string {
   const date = new Date(timestamp * 1000);
-  return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], { 
-    hour: '2-digit', 
-    minute: '2-digit'
-  });
+  return format(date, 'yyyy-MM-dd HH:mm');
 }
 
 // Handle single click
