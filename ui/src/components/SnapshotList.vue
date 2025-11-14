@@ -67,7 +67,7 @@ const emit = defineEmits<{
   'update:modelValue': [value: string | null];
 }>();
 
-const { data } = useApi("/storages/local/snapshots");
+const { data } = useApi(ref("/storages/local/snapshots"));
 
 const tableRef = ref<HTMLElement | null>(null);
 const isDragging = ref(false);

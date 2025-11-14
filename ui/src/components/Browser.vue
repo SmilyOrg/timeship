@@ -3,78 +3,64 @@
     <snapshot-list
       v-model="selectedSnapshot">
     </snapshot-list>
-    <div class="finder">
-      <vue-finder
-        :key="'vf-' + selectedSnapshot"
-        class="finder"
-        id="vf"
-        ref="vf"
-        :driver="driver"
-        @path-change="onPathChange($event)"
-      ></vue-finder>
-    </div>
+    <file-table
+      class="finder"
+      :nodes="nodes"
+      :loading="isLoading"
+      :error="error?.message"
+      @navigate="onPathChange($event)"
+      @update:selection="selectedFiles = $event"
+    ></file-table>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import SnapshotList from './SnapshotList.vue';
-import { TimeshipRemoteDriver } from './api/TimeshipRemoteDriver';
-import { useLocalStorage } from '@vueuse/core';
+import FileTable from './FileTable.vue';
+import { useApi } from './api/api';
 
 const selectedSnapshot = ref<string | null>(null);
-const vf = ref<InstanceType<typeof import('vuefinder').VueFinder> | null>(null);
+const selectedFiles = ref<string[]>([]);
 
-const driver = new TimeshipRemoteDriver({
-  baseURL: 'http://localhost:8080',
-  adapter: 'local',
-});
+const path = ref("local://");
 
-     
-// function useVueFinderRefresh(vfId) {
-//   console.log(VF);
-//   const refresh = () => {
-//     const app = VF.useApp(vfId);
-//     const currentPath = app.fs.path.get()?.path;
-//     app.adapter.open(currentPath); // This triggers the full refresh cycle
-//   };
-
-//   return { refresh };
-// }
-
-// const { refresh } = useVueFinderRefresh('vf');
-// console.log(refresh);
-
-
-const path = ref("");
-
-const configStr = useLocalStorage("vuefinder_config_vf");
-const config = computed(() => {
+// Parse path to extract storage and path components
+const parsedPath = computed(() => {
   try {
-    return JSON.parse(configStr.value || '{}');
+    const url = new URL(path.value);
+    const storage = url.protocol.replace(':', '');
+    const urlPath = url.host + url.pathname;
+    console.log('Parsed path:', url, path.value, '->', { storage, path: urlPath });
+    return { storage, path: urlPath };
   } catch (e) {
-    console.error('Failed to parse localStorage for vuefinder_config_vf:', e);
-    return {};
+    console.error('Invalid path:', path.value, e);
+    return { storage: 'local', path: '' };
   }
 });
 
-const patchConfig = (newConfig: Record<string, any>) => {
-  const mergedConfig = { ...config.value, ...newConfig };
-  configStr.value = JSON.stringify(mergedConfig);
-};
-
-watch(config, () => {
-  console.log('Local storage updated:', config.value);
-}, { immediate: true });
-
-
-const initialPath = computed(() => {
-  return config.value?.path || "local://";
+// Build API endpoint
+const apiEndpoint = computed(() => {
+  const { storage, path: urlPath } = parsedPath.value;
+  const base = `/storages/${storage}/nodes${urlPath ? '/' + urlPath : ''}`;
+  const params = new URLSearchParams();
+  if (selectedSnapshot.value) {
+    params.set('snapshot', selectedSnapshot.value);
+  }
+  return params.toString() ? `${base}?${params.toString()}` : base;
 });
 
-watch(initialPath, (newPath) => {
-  console.log('Initial path updated:', newPath);
+watch(apiEndpoint, (newEndpoint) => {
+  console.log('API Endpoint updated:', newEndpoint);
 }, { immediate: true });
+
+// Fetch data from API
+const { data, error, isLoading } = useApi(apiEndpoint);
+
+// Extract nodes from API response
+const nodes = computed(() => {
+  return data.value?.files || [];
+});
 
 const onPathChange = (newPath: string) => {
   if (path.value === newPath) {
@@ -82,17 +68,7 @@ const onPathChange = (newPath: string) => {
   }
   console.log('Path changed to:', newPath);
   path.value = newPath;
-  patchConfig({ path: newPath, initialPath: newPath });
 };
-
-// Watch for snapshot changes and update the driver
-watch(selectedSnapshot, (newSnapshot) => {
-  driver.setSnapshot(newSnapshot);
-  // Refresh VueFinder when snapshot changes
-  // if (vf.value) {
-  //   refresh();
-  // }
-});
 
 </script>
 

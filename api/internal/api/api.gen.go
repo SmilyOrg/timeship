@@ -139,7 +139,6 @@ type ErrorResponse struct {
 type ErrorResponseStatus bool
 
 // Node Unified representation of any filesystem object (file or directory).
-// Matches VueFinder v4 response structure.
 // Storage identifier is implicit in the path prefix (e.g., "local://path").
 type Node struct {
 	// Basename Base name of the node
@@ -171,7 +170,6 @@ type Node struct {
 }
 
 // NodeList Response containing list of nodes.
-// Matches VueFinder v4 list response structure.
 type NodeList struct {
 	// Dirname Current directory path with storage prefix
 	Dirname string `json:"dirname"`
@@ -303,7 +301,6 @@ type BadRequest400 = ErrorResponse
 type NodeConflict409 = ErrorResponse
 
 // NodeCreated201 Unified representation of any filesystem object (file or directory).
-// Matches VueFinder v4 response structure.
 // Storage identifier is implicit in the path prefix (e.g., "local://path").
 type NodeCreated201 = Node
 

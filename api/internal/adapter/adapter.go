@@ -15,7 +15,7 @@ import (
 // This ensures:
 //   - Consistent path handling across all adapter implementations
 //   - Clear identification of which adapter owns each path
-//   - Proper integration with the VueFinder API specification
+//   - Proper integration with the Timeship API specification
 //
 // Paths are represented as url.URL objects. Helper functions are provided below
 // to assist with path manipulation.

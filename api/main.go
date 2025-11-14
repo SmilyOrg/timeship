@@ -37,7 +37,7 @@ func main() {
 	}
 	defer localAdapter.Close()
 
-	log.Printf("VueFinder API serving files from: %s", rootDir)
+	log.Printf("Timeship API serving files from: %s", rootDir)
 
 	// Create adapters map
 	adapters := map[string]adapter.Adapter{
@@ -85,7 +85,7 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting VueFinder API server on http://%s", addr)
+		log.Printf("Starting Timeship API server on http://%s", addr)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}

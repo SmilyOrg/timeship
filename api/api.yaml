@@ -1,9 +1,8 @@
 openapi: 3.0.3
 info:
-  title: VueFinder API v2 (RESTful Edition)
+  title: Timeship API v2 (RESTful Edition)
   description: |
     RESTful file management API using unified node concept.
-    Compatible with VueFinder v4 response structures while maintaining RESTful design.
     
     All filesystem objects (files and directories) are treated as "nodes" with a type field.
     This mirrors the Unix/Linux filesystem philosophy where everything is an inode.
@@ -14,7 +13,6 @@ info:
     - Paths are hierarchical and natural - empty path = storage root
     - Operations are RESTful resources (moves, copies, archives)
     - Storage identifier is implicit in path prefix (e.g., "local://path")
-    - Response structures match VueFinder v4 for compatibility
   version: 2.0.0
   
 servers:
@@ -46,7 +44,6 @@ components:
       type: object
       description: |
         Unified representation of any filesystem object (file or directory).
-        Matches VueFinder v4 response structure.
         Storage identifier is implicit in the path prefix (e.g., "local://path").
       required:
         - path
@@ -98,7 +95,6 @@ components:
       type: object
       description: |
         Response containing list of nodes.
-        Matches VueFinder v4 list response structure.
       required:
         - dirname
         - files

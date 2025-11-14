@@ -17,11 +17,11 @@ export interface Node {
 }
 
 // Uses useQuery for a generic API implementation
-export function useApi(endpoint: string) {
+export function useApi(endpoint: Ref<string>) {
   return useQuery({
     queryKey: [endpoint],
     queryFn: async () => {
-      const response = await fetch(`http://localhost:8080${endpoint}`);
+      const response = await fetch(`http://localhost:8080${endpoint.value}`);
       if (!response.ok) {
         throw new Error('Request failed: ' + response.statusText);
       }
