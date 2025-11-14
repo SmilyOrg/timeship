@@ -9,7 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@picocss/pico": "^2.1.1",
     "@tanstack/vue-query": "^5.90.5",
     "@vueuse/core": "^14.0.0",
     "date-fns": "^4.1.0",

@@ -3,7 +3,6 @@ import './style.css'
 import App from './App.vue'
 
 import { VueQueryPlugin } from '@tanstack/vue-query'
-import '@picocss/pico/css/pico.classless.blue.css'
 
 const app = createApp(App)
 
