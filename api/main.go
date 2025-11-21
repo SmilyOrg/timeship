@@ -4,13 +4,20 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"log"
+	"mime"
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
+	"regexp"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/joho/godotenv"
+	"github.com/lpar/gzipped"
 	"github.com/smilyorg/timeship/api/internal/adapter"
 	"github.com/smilyorg/timeship/api/internal/adapter/local"
 	"github.com/smilyorg/timeship/api/internal/api"
@@ -19,7 +26,49 @@ import (
 
 //go:generate go tool oapi-codegen -config oapi-codegen.yaml api.yaml
 
+var staticCacheRegex = regexp.MustCompile(`.+\.\w`)
+
+// spaFs is a filesystem wrapper that serves index.html for SPA routing
+type spaFs struct {
+	root http.FileSystem
+}
+
+func (fs spaFs) Open(name string) (http.File, error) {
+	f, err := fs.root.Open(name)
+	if os.IsNotExist(err) && !strings.HasSuffix(name, ".br") && !strings.HasSuffix(name, ".gz") {
+		return fs.root.Open("index.html")
+	}
+	return f, err
+}
+
+// CacheControl middleware sets cache headers for static assets
+func CacheControl() func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		fn := func(w http.ResponseWriter, r *http.Request) {
+			if staticCacheRegex.MatchString(r.URL.Path) {
+				w.Header().Set("Cache-Control", "max-age=31536000")
+			}
+			next.ServeHTTP(w, r)
+		}
+		return http.HandlerFunc(fn)
+	}
+}
+
+// IndexHTML middleware appends index.html to directory requests
+func IndexHTML() func(next http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/") || len(r.URL.Path) == 0 {
+				r.URL.Path = path.Join(r.URL.Path, "index.html")
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 func main() {
+	godotenv.Load()
+
 	// Get the root directory for the local adapter from environment or use current directory
 	rootDir := os.Getenv("TIMESHIP_ROOT")
 	if rootDir == "" {
@@ -61,13 +110,67 @@ func main() {
 		log.Fatalf("Failed to create server: %v", err)
 	}
 
-	// Create HTTP server with generated handler
-	mux := http.NewServeMux()
-	handler := api.HandlerWithOptions(server, api.StdHTTPServerOptions{})
+	// Get API prefix from environment or use default
+	apiPrefix := os.Getenv("TIMESHIP_API_PREFIX")
+	if apiPrefix == "" {
+		apiPrefix = "/api"
+	}
 
-	// Apply CORS middleware
-	corsHandler := middleware.CORS()
-	mux.Handle("/", corsHandler(handler))
+	// Create HTTP server with routing
+	mux := http.NewServeMux()
+
+	// API routes with CORS
+	handler := api.HandlerWithOptions(server, api.StdHTTPServerOptions{})
+	corsHandler := middleware.CORS()(handler)
+
+	// Mount API, stripping prefix if not at root
+	if apiPrefix == "/" {
+		mux.Handle("/", corsHandler)
+	} else {
+		mux.Handle(apiPrefix+"/", http.StripPrefix(apiPrefix, corsHandler))
+	}
+
+	// Serve embedded UI if available (when built with -tags embedui)
+	if apiPrefix != "/" {
+		// Try to read from embedded FS to check if UI is available
+		_, err := StaticFs.Open("ui/dist")
+		if err != nil {
+			log.Printf("UI not embedded, serving API only (build with -tags embedui to embed UI)")
+		} else {
+			// Hardcode well-known mime types, see https://github.com/golang/go/issues/32350
+			mime.AddExtensionType(".js", "text/javascript")
+			mime.AddExtensionType(".css", "text/css")
+			mime.AddExtensionType(".html", "text/html")
+			mime.AddExtensionType(".woff", "font/woff")
+			mime.AddExtensionType(".woff2", "font/woff2")
+			mime.AddExtensionType(".png", "image/png")
+			mime.AddExtensionType(".jpg", "image/jpg")
+			mime.AddExtensionType(".jpeg", "image/jpeg")
+			mime.AddExtensionType(".ico", "image/vnd.microsoft.icon")
+			mime.AddExtensionType(".svg", "image/svg+xml")
+			mime.AddExtensionType(".webmanifest", "application/manifest+json")
+
+			uifs, err := fs.Sub(StaticFs, "ui/dist")
+			if err != nil {
+				panic(err)
+			}
+			uihandler := gzipped.FileServer(
+				spaFs{
+					root: http.FS(uifs),
+				},
+			)
+
+			// Create UI mux with middleware
+			uiMux := http.NewServeMux()
+			uiMux.Handle("/", uihandler)
+
+			// Wrap with cache control and index.html middleware
+			uiHandler := CacheControl()(IndexHTML()(uiMux))
+			mux.Handle("/", uiHandler)
+
+			log.Printf("Serving embedded UI at /")
+		}
+	}
 
 	// Get server address from environment or use default
 	addr := os.Getenv("TIMESHIP_ADDRESS")
@@ -85,7 +188,9 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("Starting Timeship API server on http://%s", addr)
+		log.Printf("")
+		log.Printf("Starting Timeship server")
+		log.Printf("  API: http://%s%s", addr, apiPrefix)
 		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}

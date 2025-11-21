@@ -34,6 +34,9 @@ tasks:
     cmds:
       - npm install
       - npm run build -- --clearScreen=false -l warn
+      - mkdir -p ../api/ui
+      - rm -rf ../api/ui/dist
+      - cp -r dist ../api/ui/dist
 
   build:api:
     desc: Build the API
@@ -50,6 +53,17 @@ tasks:
     desc: Run the API
     dir: api
     cmds:
+      - ./api
+
+  run:ui:
+    desc: Run the API with embedded UI
+    deps:
+      - build:ui
+    dir: api
+    env:
+      TIMESHIP_API_PREFIX: /api
+    cmds:
+      - go build -tags embedui
       - ./api
 
   build:run:api:
@@ -103,6 +117,7 @@ tasks:
         BUILT_BY=$(whoami)
         GOOS={{.GOOS}} GOARCH={{.GOARCH}} CGO_ENABLED=0 go build \
           -ldflags "-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE -X main.builtBy=$BUILT_BY" \
+          -tags embedui \
           -o "{{.OUTPUT}}" \
           || echo "build failed for {{.OUTPUT}}"
     silent: true
