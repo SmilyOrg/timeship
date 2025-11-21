@@ -1,7 +1,7 @@
 <template>
   <main>
     <header>
-      <img class="logo" src="/logo.png" alt="Timeship Logo" />
+      <img class="logo" src="/logo.png" alt="Cute spaceship logo" />
       <h1>Timeship</h1>
     </header>
     <browser class="browser" />

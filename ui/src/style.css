@@ -11,6 +11,29 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* 1. Core Background Tones */
+  --color-canvas-bg: #F7F4EB;       /* Parchment / Main Background */
+  --color-surface-light: #EFE8D7;   /* Old Paper / Card/Container Background */
+
+  /* 2. Primary Action/Branding (Aged Leather) */
+  --color-primary: #9F6D48;
+  --color-primary-hover: #875B3D;
+  --color-primary-active: #6B4728;
+  --color-primary-contrast: #F7F4EB; /* Text color for use on primary background */
+
+  /* 3. Secondary/Contrast (Dark Coffee) */
+  --color-secondary: #6B4728;
+  --color-secondary-hover: #50351E;
+  --color-secondary-contrast: #F7F4EB; /* Text color for use on secondary background */
+
+  /* 4. Text and UI Elements */
+  --color-text-dark: #3D2C1E;       /* Deep Espresso / Primary Body Text */
+  --color-text-light: #E1D8C1;      /* Mascot Accent / Light Contrast Text (use sparingly) */
+  
+  /* 5. Utility Tones */
+  --color-utility-success: #4B8860; /* Muted Moss Green */
+  --color-utility-danger: #B85C50;  /* Muted Brick Red */
 }
 
 a {
