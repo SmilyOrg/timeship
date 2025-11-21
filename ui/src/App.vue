@@ -39,6 +39,8 @@ h1 {
   font-size: 18px;
   font-style: italic;
   margin-top: 0;
+  color: #cac1ab;
+  /* text-shadow: -1px -1px 0 #fbf2da, 1px -1px 0 #fbf2da, -1px 1px 0 #fbf2da, 1px 1px 0 #fbf2da; */
 }
 
 </style>
