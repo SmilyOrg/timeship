@@ -13,6 +13,8 @@
         :nodes="nodes"
         :loading="isLoading"
         :error="error?.message"
+        :current-path="path"
+        :snapshot="selectedSnapshot"
         @navigate="onPathChange($event)"
         @update:selection="selectedFiles = $event"
       ></file-table>

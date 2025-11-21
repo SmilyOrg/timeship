@@ -22,6 +22,7 @@
           :class="{ 'is-selected': selectedPaths.has(node.path) }"
           @click="handleClick($event, node)"
           @dblclick="handleDoubleClick(node)"
+          @contextmenu="handleContextMenu($event, node)"
         >
           <td class="col-icon">{{ node.type === 'dir' ? '📁' : '📄' }}</td>
           <td class="col-name">{{ node.basename }}</td>
@@ -30,6 +31,23 @@
         </tr>
       </tbody>
     </table>
+
+    <!-- Context Menu -->
+    <div 
+      v-if="contextMenu.visible"
+      ref="contextMenuRef"
+      class="context-menu ui vertical menu"
+      :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }"
+    >
+      <a 
+        class="item"
+        :href="downloadUrl"
+        :download="contextMenu.node?.basename"
+        @click="contextMenu.visible = false"
+      >
+        Download
+      </a>
+    </div>
 
     <div v-if="error" class="empty-state">
       <div class="empty-icon">{{ isNotFoundError ? '📂' : '⚠️' }}</div>
@@ -44,18 +62,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue';
+import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import type { Node } from './api/api';
-import { useFocus } from '@vueuse/core';
 import { format } from 'date-fns';
 
 const props = withDefaults(defineProps<{
   nodes: Node[];
   loading?: boolean;
   error?: string | null;
+  currentPath?: string;
+  snapshot?: string | null;
 }>(), {
   loading: false,
   error: null,
+  currentPath: '',
+  snapshot: null,
 });
 
 const emit = defineEmits<{
@@ -72,13 +93,39 @@ const errorMessage = computed(() => {
   return props.error || 'An error occurred';
 });
 
+// Compute download URL for context menu
+const downloadUrl = computed(() => {
+  const node = contextMenu.value.node;
+  if (!node) return '';
+  
+  const { storage, path: urlPath } = parsePath(node.path);
+  let url = `http://localhost:8080/storages/${storage}/nodes/${urlPath}`;
+  
+  const params = new URLSearchParams();
+  if (props.snapshot) {
+    params.set('snapshot', props.snapshot);
+  }
+  params.set('download', 'true');
+  
+  return `${url}?${params.toString()}`;
+});
+
 // Selection state
 const selectedPaths = ref<Set<string>>(new Set());
 const lastSelectedIndex = ref<number>(-1);
 
 // Table focus management
 const tableRef = ref<HTMLTableElement | null>(null);
-const { focused } = useFocus(tableRef);
+
+// Context menu state
+const contextMenu = ref({
+  visible: false,
+  x: 0,
+  y: 0,
+  node: null as Node | null,
+});
+
+const contextMenuRef = ref<HTMLDivElement | null>(null);
 
 // Emit selection changes
 watch(selectedPaths, (newSelection) => {
@@ -140,6 +187,60 @@ function handleDoubleClick(node: Node) {
     emit('navigate', node.path);
   }
 }
+
+// Handle context menu
+function handleContextMenu(event: MouseEvent, node: Node) {
+  event.preventDefault();
+  
+  // Only show context menu for files
+  if (node.type !== 'file') {
+    return;
+  }
+  
+  // Select the node if not already selected
+  if (!selectedPaths.value.has(node.path)) {
+    selectedPaths.value.clear();
+    selectedPaths.value.add(node.path);
+    const nodeIndex = props.nodes.findIndex(n => n.path === node.path);
+    lastSelectedIndex.value = nodeIndex;
+  }
+  
+  contextMenu.value = {
+    visible: true,
+    x: event.clientX,
+    y: event.clientY,
+    node,
+  };
+}
+
+// Parse path helper
+function parsePath(fullPath: string) {
+  try {
+    const url = new URL(fullPath);
+    const storage = url.protocol.replace(':', '');
+    const path = url.host + url.pathname;
+    return { storage, path };
+  } catch (e) {
+    console.error('Invalid path:', fullPath, e);
+    return { storage: 'local', path: fullPath };
+  }
+}
+
+// Close context menu when clicking outside
+function handleClickOutside(event: MouseEvent) {
+  if (contextMenu.value.visible && contextMenuRef.value && !contextMenuRef.value.contains(event.target as HTMLElement)) {
+    contextMenu.value.visible = false;
+  }
+}
+
+// Lifecycle hooks
+onMounted(() => {
+  document.addEventListener('click', handleClickOutside);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleClickOutside);
+});
 
 // Handle keyboard navigation
 function handleKeyDown(event: KeyboardEvent) {
@@ -290,4 +391,11 @@ tr.is-selected:hover {
   font-size: 16px;
   color: #666;
 }
+
+.context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 120px;
+}
+
 </style>
