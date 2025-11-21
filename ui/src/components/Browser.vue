@@ -2,6 +2,7 @@
   <div class="browser">
     <snapshot-list
       :model-value="selectedSnapshot"
+      :current-path="path"
       @update:model-value="onSnapshotChange">
     </snapshot-list>
     <div class="explorer">

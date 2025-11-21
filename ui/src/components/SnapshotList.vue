@@ -23,6 +23,7 @@
           v-for="snapshot in snapshots"
           :key="snapshot.id"
           :data-snapshot-id="snapshot.id"
+          :class="{ 'not-found': snapshot.notFound }"
         >
           <td>
             <label>
@@ -42,7 +43,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import { useApi, type Snapshot as ApiSnapshot } from './api/api';
+import { useApi, useApis, type Snapshot as ApiSnapshot } from './api/api';
 import { format } from 'date-fns';
 
 interface SnapshotWithDate extends ApiSnapshot {
@@ -57,10 +58,12 @@ interface FormattedSnapshot {
   selected: boolean;
   timestamp?: string;
   marginBottom?: number;
+  notFound?: boolean;
 }
 
 const props = defineProps<{
   modelValue?: string | null;
+  currentPath?: string;
 }>();
 
 const emit = defineEmits<{
@@ -68,6 +71,58 @@ const emit = defineEmits<{
 }>();
 
 const { data } = useApi(ref("/storages/local/snapshots"));
+
+// Build endpoints for checking snapshot availability
+const snapshotCheckEndpoints = computed(() => {
+  const path = props.currentPath;
+  const apiSnapshots = data.value?.snapshots || [];
+  
+  // If no path or at root, return empty array (no checks needed)
+  if (!path || path === 'local://') {
+    return [];
+  }
+
+  try {
+    // Parse the path to extract storage and path components
+    const url = new URL(path);
+    const storage = url.protocol.replace(':', '');
+    const urlPath = url.host + url.pathname;
+    
+    // Create endpoint for each snapshot
+    return apiSnapshots.map((snapshot: ApiSnapshot) => 
+      `/storages/${storage}/nodes/${urlPath}?snapshot=${snapshot.id}`
+    );
+  } catch (e) {
+    console.error('Invalid path:', path, e);
+    return [];
+  }
+});
+
+// Use useApis to check all snapshots in parallel
+const snapshotCheckResults = useApis(snapshotCheckEndpoints);
+
+// Create a map of snapshot availability from the query results
+const snapshotAvailability = computed(() => {
+  const map = new Map<string, boolean>();
+  const apiSnapshots = data.value?.snapshots || [];
+  
+  // If no path or at root, all snapshots are available
+  if (!props.currentPath || props.currentPath === 'local://') {
+    apiSnapshots.forEach((snapshot: ApiSnapshot) => {
+      map.set(snapshot.id, true);
+    });
+    return map;
+  }
+  
+  apiSnapshots.forEach((snapshot: ApiSnapshot, index: number) => {
+    const result = snapshotCheckResults.value[index];
+    // If query is successful (no error), the path exists
+    map.set(snapshot.id, result?.isSuccess === true);
+  });
+  
+  return map;
+});
+
 
 const tableRef = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
@@ -255,6 +310,7 @@ const snapshots = computed(() => {
       selected: s.selected,
       timestamp: s.timestamp,
       marginBottom,
+      notFound: snapshotAvailability.value.get(s.id) === false,
     };
   });
   
@@ -348,6 +404,14 @@ tr {
   border: 0;
   padding: 0;
   line-height: 1;
+}
+
+tr.not-found {
+  opacity: 0.3;
+}
+
+tr.not-found td label {
+  text-decoration: line-through;
 }
 
 td label {
