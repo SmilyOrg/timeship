@@ -32,8 +32,8 @@
     </table>
 
     <div v-if="error" class="empty-state">
-      <div class="empty-icon">⚠️</div>
-      <div class="empty-message">{{ error }}</div>
+      <div class="empty-icon">{{ isNotFoundError ? '📂' : '⚠️' }}</div>
+      <div class="empty-message">{{ errorMessage }}</div>
     </div>
 
     <div v-else-if="nodes.length === 0 && !loading" class="empty-state">
@@ -44,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { ref, watch, computed } from 'vue';
 import type { Node } from './api/api';
 import { useFocus } from '@vueuse/core';
 import { format } from 'date-fns';
@@ -62,6 +62,15 @@ const emit = defineEmits<{
   'update:selection': [paths: string[]];
   'navigate': [path: string];
 }>();
+
+// Computed error properties
+const isNotFoundError = computed(() => props.error === 'Not found');
+const errorMessage = computed(() => {
+  if (isNotFoundError.value) {
+    return 'This folder does not exist in this snapshot';
+  }
+  return props.error || 'An error occurred';
+});
 
 // Selection state
 const selectedPaths = ref<Set<string>>(new Set());

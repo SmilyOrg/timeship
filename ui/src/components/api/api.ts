@@ -23,9 +23,20 @@ export function useApi(endpoint: Ref<string>) {
     queryFn: async () => {
       const response = await fetch(`http://localhost:8080${endpoint.value}`);
       if (!response.ok) {
+        if (response.status === 404) {
+          throw new Error('Not found');
+        }
         throw new Error('Request failed: ' + response.statusText);
       }
       return response.json();
+    },
+    retry: (failureCount, error) => {
+      // Don't retry on 404 errors
+      if (error.message === 'Not found') {
+        return false;
+      }
+      // Retry other errors up to 3 times
+      return failureCount < 3;
     },
   });
 }
@@ -38,9 +49,20 @@ export function useApis(endpoints: Ref<string[]>) {
       queryFn: async () => {
         const response = await fetch(`http://localhost:8080${endpoint}`);
         if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error('Not found');
+          }
           throw new Error('Request failed: ' + response.statusText);
         }
         return response.json();
+      },
+      retry: (failureCount: number, error: Error) => {
+        // Don't retry on 404 errors
+        if (error.message === 'Not found') {
+          return false;
+        }
+        // Retry other errors up to 3 times
+        return failureCount < 3;
       },
     }));
   });
