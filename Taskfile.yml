@@ -5,6 +5,27 @@
 # Run `task` to see the list of tasks
 version: '3'
 
+vars:
+  BINARY_NAME: timeship
+  BUILD_OS_ARCH:
+    - darwin/amd64
+    - darwin/arm64
+    - linux/386
+    - linux/amd64
+    - linux/arm
+    - linux/arm64
+    - linux/loong64
+    - linux/ppc64le
+    - linux/riscv64
+    - linux/s390x
+    - openbsd/amd64
+    - openbsd/arm64
+    - windows/386
+    - windows/amd64
+    - windows/arm64
+  VERSION:
+    sh: git describe --tags --match "v*" --always --dirty
+
 tasks:
 
   build:ui:
@@ -55,3 +76,82 @@ tasks:
     dir: api
     cmds:
       - watchexec --exts go -r task build:run:api
+
+  package:
+    desc: Build and package the application for all platforms
+    cmds:
+      - task: build:ui
+      - task: build:release:all
+      - task: archive:all
+      - task: checksums
+
+  build:release:
+    desc: Build the release binary for GOOS and GOARCH (current platform by default)
+    dir: api
+    vars:
+      DEFAULT_OUTPUT: "../dist/bin/{{.BINARY_NAME}}_{{.VERSION}}_{{ coalesce .GOOS OS }}_{{ coalesce .GOARCH ARCH }}{{ if eq (coalesce .GOOS OS) \"windows\" }}.exe{{ end }}"
+      OUTPUT: "{{ coalesce .OUTPUT .DEFAULT_OUTPUT }}"
+    generates:
+      - "{{.OUTPUT}}"
+    cmds:
+      - |
+        set -eou pipefail
+        echo "build {{.OUTPUT}}"
+        VERSION={{.VERSION}}
+        COMMIT=$(git rev-parse HEAD)
+        DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        BUILT_BY=$(whoami)
+        GOOS={{.GOOS}} GOARCH={{.GOARCH}} CGO_ENABLED=0 go build \
+          -ldflags "-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE -X main.builtBy=$BUILT_BY" \
+          -o "{{.OUTPUT}}" \
+          || echo "build failed for {{.OUTPUT}}"
+    silent: true
+
+  build:release:all:
+    desc: Build the release binary for all supported platforms
+    deps:
+      - for:
+          var: BUILD_OS_ARCH
+          split: ","
+        task: build:release
+        vars:
+          GOOS: "{{(.ITEM | split \"/\")._0}}"
+          GOARCH: "{{(.ITEM | split \"/\")._1}}"
+
+  archive:all:
+    desc: Archive all release binaries
+    deps:
+      - for:
+          var: BUILD_OS_ARCH
+          split: ","
+        task: archive
+        vars:
+          GOOS: "{{(.ITEM | split \"/\")._0}}"
+          GOARCH: "{{(.ITEM | split \"/\")._1}}"
+
+  archive:dir:
+    dir: dist/archives
+    internal: true
+
+  archive:
+    desc: Archive the release binary for GOOS and GOARCH (current platform by default)
+    vars:
+      INPUT: "dist/bin/{{.BINARY_NAME}}_{{.VERSION}}_{{ coalesce .GOOS OS }}_{{ coalesce .GOARCH ARCH }}{{ if eq (coalesce .GOOS OS) \"windows\" }}.exe{{ end }}"
+      OUTPUT: "dist/archives/{{.BINARY_NAME}}_{{.VERSION}}_{{ coalesce .GOOS OS }}_{{ coalesce .GOARCH ARCH }}.zip"
+    sources:
+      - "{{.INPUT}}"
+    generates:
+      - "{{.OUTPUT}}"
+    deps:
+      - task: archive:dir
+    cmds:
+      - echo "archive {{.OUTPUT}}"
+      - mkdir -p $(dirname "{{.OUTPUT}}")
+      - cd dist/bin && zip -q "../../{{.OUTPUT}}" $(basename "{{.INPUT}}")
+    silent: true
+
+  checksums:
+    desc: Generate checksums for all archives
+    dir: dist/archives
+    cmds:
+      - sha256sum *.zip > checksums.txt

@@ -171,7 +171,10 @@ function handleClick(event: MouseEvent, node: Node) {
     const end = Math.max(lastSelectedIndex.value, nodeIndex);
     selectedPaths.value.clear();
     for (let i = start; i <= end; i++) {
-      selectedPaths.value.add(props.nodes[i].path);
+      const nodeAtIndex = props.nodes[i];
+      if (nodeAtIndex) {
+        selectedPaths.value.add(nodeAtIndex.path);
+      }
     }
   } else {
     // Regular click: Select single item
@@ -271,16 +274,23 @@ function handleKeyDown(event: KeyboardEvent) {
       const end = Math.max(lastSelectedIndex.value, newIndex);
       selectedPaths.value.clear();
       for (let i = start; i <= end; i++) {
-        selectedPaths.value.add(props.nodes[i].path);
+        const nodeAtIndex = props.nodes[i];
+        if (nodeAtIndex) {
+          selectedPaths.value.add(nodeAtIndex.path);
+        }
       }
     } else if (event.ctrlKey || event.metaKey) {
       // Ctrl+Arrow: Move focus and add to selection
-      selectedPaths.value.add(newNode.path);
+      if (newNode) {
+        selectedPaths.value.add(newNode.path);
+      }
       lastSelectedIndex.value = newIndex;
     } else {
       // Regular arrow: Move selection
       selectedPaths.value.clear();
-      selectedPaths.value.add(newNode.path);
+      if (newNode) {
+        selectedPaths.value.add(newNode.path);
+      }
       lastSelectedIndex.value = newIndex;
     }
     

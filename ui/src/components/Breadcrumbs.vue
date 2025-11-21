@@ -26,7 +26,7 @@ interface BreadcrumbItem {
     active?: boolean
 }
 
-const props = defineProps<{
+defineProps<{
     items?: BreadcrumbItem[]
 }>()
 
