@@ -3,12 +3,14 @@ import './style.css'
 import 'fomantic-ui-css/semantic.min.css';
 import '@fontsource/kanit/700-italic.css';
 import App from './App.vue'
+import router from './router'
 
 import { VueQueryPlugin } from '@tanstack/vue-query'
 
 const app = createApp(App)
 
 app.use(VueQueryPlugin)
+app.use(router)
 
 app.mount('#app')
  

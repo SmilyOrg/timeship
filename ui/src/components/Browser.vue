@@ -1,7 +1,8 @@
 <template>
   <div class="browser">
     <snapshot-list
-      v-model="selectedSnapshot">
+      :model-value="selectedSnapshot"
+      @update:model-value="onSnapshotChange">
     </snapshot-list>
     <div class="explorer">
       <breadcrumbs
@@ -24,25 +25,42 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
 import SnapshotList from './SnapshotList.vue';
 import FileTable from './FileTable.vue';
 import Breadcrumbs from './Breadcrumbs.vue';
 import { useApi } from './api/api';
 
-const selectedSnapshot = ref<string | null>(null);
+// Props from router
+const props = defineProps<{
+  storage: string;
+  path: string | string[];
+  snapshot: string | null;
+}>();
+
+const router = useRouter();
+
 const selectedFiles = ref<string[]>([]);
 
-const path = ref("local://");
+// Derive full path from props
+const path = computed(() => {
+  const pathArray = Array.isArray(props.path) ? props.path : props.path ? [props.path] : [];
+  const pathStr = pathArray.join('/');
+  return `${props.storage}://${pathStr}`;
+});
+
+// Derive snapshot from props
+const selectedSnapshot = computed(() => props.snapshot);
 
 // Compute breadcrumb items from path
 const breadcrumbItems = computed(() => {
   return [
-    { text: 'Storage', href: 'local://', active: path.value === 'local://' },
+    { text: 'Storage', href: `${props.storage}://`, active: path.value === `${props.storage}://` },
     ...path.value.split('/').slice(2).map((part, index, arr) => {
       const isActive = index === arr.length - 1;
       return {
         text: part,
-        href: `local://${arr.slice(0, index + 1).join('/')}`,
+        href: `${props.storage}://${arr.slice(0, index + 1).join('/')}`,
         active: isActive,
       };
     }),
@@ -51,16 +69,10 @@ const breadcrumbItems = computed(() => {
 
 // Parse path to extract storage and path components
 const parsedPath = computed(() => {
-  try {
-    const url = new URL(path.value);
-    const storage = url.protocol.replace(':', '');
-    const urlPath = url.host + url.pathname;
-    console.log('Parsed path:', url, path.value, '->', { storage, path: urlPath });
-    return { storage, path: urlPath };
-  } catch (e) {
-    console.error('Invalid path:', path.value, e);
-    return { storage: 'local', path: '' };
-  }
+  const pathArray = Array.isArray(props.path) ? props.path : props.path ? [props.path] : [];
+  const pathStr = pathArray.join('/');
+  console.log('Parsed path:', props.storage, pathStr);
+  return { storage: props.storage, path: pathStr };
 });
 
 // Build API endpoint
@@ -91,7 +103,44 @@ const onPathChange = (newPath: string) => {
     return;
   }
   console.log('Path changed to:', newPath);
-  path.value = newPath;
+  
+  // Parse the new path to extract storage and path
+  try {
+    const url = new URL(newPath);
+    const storage = url.protocol.replace(':', '');
+    const pathStr = url.host + url.pathname;
+    
+    // Split path into segments to avoid URL encoding issues
+    const pathSegments = pathStr ? pathStr.split('/').filter(s => s) : [];
+    
+    // Update the route
+    router.push({
+      name: 'browse',
+      params: {
+        storage,
+        path: pathSegments.length > 0 ? pathSegments : undefined
+      },
+      query: selectedSnapshot.value ? { snapshot: selectedSnapshot.value } : {}
+    });
+  } catch (e) {
+    console.error('Invalid path:', newPath, e);
+  }
+};
+
+const onSnapshotChange = (newSnapshot: string | null) => {
+  const { storage, path: urlPath } = parsedPath.value;
+  
+  // Split path into segments to avoid URL encoding issues
+  const pathSegments = urlPath ? urlPath.split('/').filter(s => s) : [];
+  
+  router.push({
+    name: 'browse',
+    params: {
+      storage,
+      path: pathSegments.length > 0 ? pathSegments : undefined
+    },
+    query: newSnapshot ? { snapshot: newSnapshot } : {}
+  });
 };
 
 </script>

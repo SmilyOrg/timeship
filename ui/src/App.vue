@@ -4,12 +4,11 @@
       <img class="logo" src="/logo.png" alt="Cute spaceship logo" />
       <h1>Timeship</h1>
     </header>
-    <browser class="browser" />
+    <router-view class="browser" />
   </main>
 </template>
 
 <script setup lang="ts">
-import Browser from './components/Browser.vue';
 </script>
 
 <style scoped>
