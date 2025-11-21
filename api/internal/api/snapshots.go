@@ -3,7 +3,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 
@@ -43,8 +42,6 @@ func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.
 		Scheme: string(storage),
 		Path:   path,
 	}
-
-	log.Printf("GetStoragesStorageSnapshotsPath: storage=%s, path=%s, vfPath=%s", storage, path, vfPath.String())
 
 	// Get snapshots from the adapter
 	snapshots, err := snapshotLister.ListSnapshots(vfPath)

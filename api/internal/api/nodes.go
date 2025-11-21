@@ -66,8 +66,6 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 	lister, canList := storageAdapter.(adapter.Lister)
 	reader, canRead := storageAdapter.(adapter.Reader)
 
-	log.Printf("GetStoragesStorageNodesPath: storage=%s, path=%s, wantsFileContent=%v, canList=%v, canRead=%v", storage, path, wantsFileContent, canList, canRead)
-
 	// First, try to determine if this is a file or directory
 	// We'll attempt to list - if it fails, we'll try to read as a file
 	if canList && !wantsFileContent {
