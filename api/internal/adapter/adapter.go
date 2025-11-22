@@ -99,6 +99,11 @@ type Reader interface {
 	MimeType(path url.URL) (string, error)
 }
 
+// Stater gets file information
+type Stater interface {
+	LastModified(path url.URL) (int64, error)
+}
+
 // Writer writes file content (for /upload and /save endpoints)
 type Writer interface {
 	WriteStream(path url.URL, r io.Reader) error

@@ -17,6 +17,7 @@ export interface Node {
   last_modified: number;
   path: string;
   type: string;
+  mime_type?: string;
 }
 
 /**
@@ -63,7 +64,11 @@ export function useApi(endpoint: Ref<string>) {
   return useQuery({
     queryKey: [endpoint],
     queryFn: async () => {
-      const response = await fetch(`${API_BASE_URL}${endpoint.value}`);
+      const response = await fetch(`${API_BASE_URL}${endpoint.value}`, {
+        headers: {
+          'Accept': 'application/json',
+        },
+      });
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Not found');
@@ -89,7 +94,11 @@ export function useApis(endpoints: Ref<string[]>) {
     return endpoints.value.map(endpoint => ({
       queryKey: [endpoint],
       queryFn: async () => {
-        const response = await fetch(`${API_BASE_URL}${endpoint}`);
+        const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
         if (!response.ok) {
           if (response.status === 404) {
             throw new Error('Not found');

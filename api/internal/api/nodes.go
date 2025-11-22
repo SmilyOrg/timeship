@@ -16,6 +16,12 @@ import (
 	"github.com/smilyorg/timeship/api/internal/adapter"
 )
 
+// unencodedPath returns the path from a url.URL without URL encoding
+func unencodedPath(u url.URL) string {
+	// Build unencoded path: scheme://host/path
+	return u.Scheme + "://" + u.Host + u.Path
+}
+
 func (s *Server) GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageNodesParams) {
 	// Delegate to the path-based handler with empty path
 	pathParams := GetStoragesStorageNodesPathParams{
@@ -56,30 +62,32 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 		vfPath.RawQuery = q.Encode()
 	}
 
-	// Determine if this is a directory listing or file retrieval based on Accept header
+	// Determine if client wants JSON metadata or file content based on Accept header
 	acceptHeader := r.Header.Get("Accept")
-
-	// If client accepts octet-stream, they want file content
-	wantsFileContent := strings.Contains(acceptHeader, "application/octet-stream")
+	wantsJSON := strings.Contains(acceptHeader, "application/json")
 
 	// Check if the adapter supports listing (for directories) or reading (for files)
 	lister, canList := storageAdapter.(adapter.Lister)
 	reader, canRead := storageAdapter.(adapter.Reader)
 
-	// First, try to determine if this is a file or directory
-	// We'll attempt to list - if it fails, we'll try to read as a file
-	if canList && !wantsFileContent {
-		// Try to list as a directory
+	// First, try to list as a directory
+	if canList {
 		nodes, err := lister.ListContents(vfPath)
 		if err == nil {
-			// It's a directory - return listing
+			// It's a directory - return listing as JSON
 			s.serveDirectoryListing(w, r, storage, path, nodes, params, storageAdapter)
 			return
 		}
 	}
 
-	// If listing failed or client wants file content, try to read as a file
+	// Not a directory, try to handle as a file
 	if canRead {
+		// If client wants JSON, return file metadata
+		if wantsJSON {
+			s.serveFileMetadata(w, r, storage, path, vfPath, reader, params)
+			return
+		}
+		// Otherwise, return file content
 		s.serveFileContent(w, r, storage, path, vfPath, reader, params)
 		return
 	}
@@ -141,7 +149,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 	files := make([]Node, 0, len(nodes))
 	for _, node := range nodes {
 		apiNode := Node{
-			Path:         node.Path.String(),
+			Path:         unencodedPath(node.Path),
 			Type:         NodeType(node.Type),
 			Basename:     node.Basename,
 			Extension:    node.Extension,
@@ -196,6 +204,61 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(response)
+}
+
+// serveFileMetadata returns file metadata as JSON
+func (s *Server) serveFileMetadata(w http.ResponseWriter, r *http.Request, storage Storage, path string, vfPath url.URL, reader adapter.Reader, params GetStoragesStorageNodesPathParams) {
+	// Get file size
+	fileSize, err := reader.FileSize(vfPath)
+	if err != nil {
+		s.sendError(w, "Not Found", http.StatusNotFound, "Failed to get file size: "+err.Error(), r.URL.Path)
+		return
+	}
+
+	// Get MIME type
+	mimeType, err := reader.MimeType(vfPath)
+	if err != nil {
+		log.Printf("Failed to get MIME type for %s: %v", vfPath.String(), err)
+		mimeType = "application/octet-stream"
+	}
+
+	// Get last modified time if adapter supports it
+	var lastModified int64
+	if stater, ok := reader.(adapter.Stater); ok {
+		lastModified, err = stater.LastModified(vfPath)
+		if err != nil {
+			log.Printf("Failed to get last modified time for %s: %v", vfPath.String(), err)
+			lastModified = 0
+		}
+	}
+
+	// Get basename and extension
+	basename := getBasename(path)
+	extension := ""
+	if idx := strings.LastIndex(basename, "."); idx > 0 {
+		extension = basename[idx:]
+	}
+
+	// Build full path with storage prefix
+	fullPath := string(storage) + "://" + path
+
+	// Create node response
+	node := Node{
+		Path:         fullPath,
+		Type:         NodeType("file"),
+		Basename:     basename,
+		Extension:    extension,
+		FileSize:     fileSize,
+		LastModified: lastModified,
+	}
+
+	if mimeType != "" {
+		node.MimeType = &mimeType
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(node)
 }
 
 // serveFileContent streams file content

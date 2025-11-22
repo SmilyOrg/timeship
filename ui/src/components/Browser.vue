@@ -11,6 +11,7 @@
         @navigate="onPathChange($event.href || '')"
       ></breadcrumbs>
       <file-table
+        v-if="!isViewingFile"
         class="file-table"
         :nodes="nodes"
         :loading="isLoading"
@@ -20,6 +21,14 @@
         @navigate="onPathChange($event)"
         @update:selection="selectedFiles = $event"
       ></file-table>
+      <file-preview
+        v-else
+        class="file-preview"
+        :file-info="currentFileInfo"
+        :loading="isLoading"
+        :error="error?.message"
+        :snapshot="selectedSnapshot"
+      ></file-preview>
     </div>
   </div>
 </template>
@@ -29,8 +38,10 @@ import { computed, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import SnapshotList from './SnapshotList.vue';
 import FileTable from './FileTable.vue';
+import FilePreview from './FilePreview.vue';
 import Breadcrumbs from './Breadcrumbs.vue';
 import { useApi } from './api/api';
+import type { Node } from './api/api';
 
 // Props from router
 const props = defineProps<{
@@ -99,6 +110,20 @@ const nodes = computed(() => {
   return data.value?.files || [];
 });
 
+// Determine if we're viewing a file (API returns a single file object instead of a files array)
+const isViewingFile = computed(() => {
+  return data.value && !data.value.files;
+});
+
+// Get current file info when viewing a file
+const currentFileInfo = computed<Node | null>(() => {
+  if (isViewingFile.value && data.value) {
+    // When viewing a file, the API returns the file object directly
+    return data.value as Node;
+  }
+  return null;
+});
+
 const onPathChange = (newPath: string) => {
   if (path.value === newPath) {
     return;
@@ -109,7 +134,7 @@ const onPathChange = (newPath: string) => {
   try {
     const url = new URL(newPath);
     const storage = url.protocol.replace(':', '');
-    const pathStr = url.host + url.pathname;
+    const pathStr = decodeURIComponent(url.host) + decodeURIComponent(url.pathname);
     
     // Split path into segments to avoid URL encoding issues
     const pathSegments = pathStr ? pathStr.split('/').filter(s => s) : [];

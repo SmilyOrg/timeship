@@ -173,6 +173,15 @@ func (a *Adapter) FileSize(vfPath url.URL) (int64, error) {
 	return info.Size(), nil
 }
 
+// LastModified implements adapter.Stater
+func (a *Adapter) LastModified(vfPath url.URL) (int64, error) {
+	info, err := a.stat(vfPath)
+	if err != nil {
+		return 0, err
+	}
+	return info.ModTime().Unix(), nil
+}
+
 // ReadStream implements adapter.Reader
 func (a *Adapter) ReadStream(vfPath url.URL) (io.ReadCloser, error) {
 	return a.open(vfPath)

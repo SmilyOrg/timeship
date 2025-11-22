@@ -90,9 +90,9 @@ const isNotFoundError = computed(() => props.error === 'Not found');
 const errorMessage = computed(() => {
   if (isNotFoundError.value) {
     if (props.snapshot) {
-      return 'The folder was not found in this snapshot';
+      return 'The file/folder was not found in this snapshot';
     } else {
-      return 'The folder was not found';
+      return 'The file/folder was not found';
     }
   }
   return props.error || 'An error occurred';
@@ -185,9 +185,8 @@ function handleClick(event: MouseEvent, node: Node) {
 
 // Handle double click
 function handleDoubleClick(node: Node) {
-  if (node.type === 'dir') {
-    emit('navigate', node.path);
-  }
+  // Emit navigate for both files and directories
+  emit('navigate', node.path);
 }
 
 // Handle context menu
