@@ -91,12 +91,20 @@ tasks:
     cmds:
       - watchexec --exts go -r task build:run:api
 
-  package:
+  package:all:
     desc: Build and package the application for all platforms
     cmds:
       - task: build:ui
       - task: build:release:all
       - task: archive:all
+      - task: checksums
+
+  package:
+    desc: Build and package the application for the current platform
+    cmds:
+      - task: build:ui
+      - task: build:release
+      - task: archive
       - task: checksums
 
   build:release:

@@ -64,6 +64,7 @@
 <script setup lang="ts">
 import { ref, watch, computed, onMounted, onUnmounted } from 'vue';
 import type { Node } from './api/api';
+import { getNodeUrl } from './api/api';
 import { format } from 'date-fns';
 
 const props = withDefaults(defineProps<{
@@ -88,7 +89,11 @@ const emit = defineEmits<{
 const isNotFoundError = computed(() => props.error === 'Not found');
 const errorMessage = computed(() => {
   if (isNotFoundError.value) {
-    return 'This folder does not exist in this snapshot';
+    if (props.snapshot) {
+      return 'The folder was not found in this snapshot';
+    } else {
+      return 'The folder was not found';
+    }
   }
   return props.error || 'An error occurred';
 });
@@ -98,16 +103,10 @@ const downloadUrl = computed(() => {
   const node = contextMenu.value.node;
   if (!node) return '';
   
-  const { storage, path: urlPath } = parsePath(node.path);
-  let url = `http://localhost:8080/storages/${storage}/nodes/${urlPath}`;
-  
-  const params = new URLSearchParams();
-  if (props.snapshot) {
-    params.set('snapshot', props.snapshot);
-  }
-  params.set('download', 'true');
-  
-  return `${url}?${params.toString()}`;
+  return getNodeUrl(node.path, {
+    snapshot: props.snapshot,
+    download: true
+  });
 });
 
 // Selection state
@@ -214,19 +213,6 @@ function handleContextMenu(event: MouseEvent, node: Node) {
     y: event.clientY,
     node,
   };
-}
-
-// Parse path helper
-function parsePath(fullPath: string) {
-  try {
-    const url = new URL(fullPath);
-    const storage = url.protocol.replace(':', '');
-    const path = url.host + url.pathname;
-    return { storage, path };
-  } catch (e) {
-    console.error('Invalid path:', fullPath, e);
-    return { storage: 'local', path: fullPath };
-  }
 }
 
 // Close context menu when clicking outside
