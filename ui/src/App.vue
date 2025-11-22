@@ -1,8 +1,10 @@
 <template>
   <main>
     <header>
-      <img class="logo" src="/logo.png" alt="Cute spaceship logo" />
-      <h1>Timeship</h1>
+      <router-link to="/">
+        <img class="logo" src="/logo.png" alt="Cute spaceship logo" />
+        <h1>Timeship</h1>
+      </router-link>
     </header>
     <router-view class="browser" />
   </main>
@@ -18,6 +20,13 @@
   width: fit-content;
   height: 64px;
   margin-bottom: -16px;
+  cursor: pointer;
+}
+
+header a {
+  text-decoration: none;
+  display: block;
+  width: fit-content;
 }
 
 .browser {
@@ -39,6 +48,7 @@ h1 {
   font-style: italic;
   margin-top: 0;
   color: #cac1ab;
+  cursor: pointer;
   /* text-shadow: -1px -1px 0 #fbf2da, 1px -1px 0 #fbf2da, -1px 1px 0 #fbf2da, 1px 1px 0 #fbf2da; */
 }
 
