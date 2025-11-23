@@ -1,0 +1,17 @@
+services:
+  timeship:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    volumes:
+      # Mount your ZFS datasets or snapshot directories here
+      # Example:
+      # - /your/zfs/pool:/data:ro
+      # - ./data:/data:ro
+      # Note: :z flag allows SELinux to relabel the content (shared volume)
+      - ./:/mnt/:ro,z
+    environment:
+      - TIMESHIP_ROOT=/mnt
+    restart: unless-stopped

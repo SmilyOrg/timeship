@@ -82,6 +82,34 @@ Timeship is a self-hosted web-based snapshot browser that allows you to explore 
 
 4. Open http://localhost:8080 in your browser
 
+### Docker
+
+You can also run Timeship using Docker:
+
+1. Build the Docker image
+   ```sh
+   task docker:build
+   ```
+   
+   Or manually:
+   ```sh
+   docker build -t timeship .
+   ```
+
+2. Run the container
+   ```sh
+   docker run -p 8080:8080 -v /your/zfs/pool:/data:ro timeship
+   ```
+
+   Or use docker-compose:
+   ```sh
+   docker compose up -d
+   ```
+
+3. Open http://localhost:8080 in your browser
+
+**Note:** Make sure to mount your ZFS datasets or snapshot directories as volumes when running the container.
+
 ### Environment Variables
 
 * `TIMESHIP_ROOT` - Root directory to serve (defaults to current working directory)
@@ -124,6 +152,7 @@ Timeship automatically detects and parses common ZFS snapshot naming patterns:
 
 - [x] File restoration functionality
 - [x] Pre-built binaries for releases
+- [x] Docker container support
 - [ ] Text file preview
 - [ ] Image file preview
 - [ ] Docker container support

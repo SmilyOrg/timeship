@@ -1,0 +1,33 @@
+# Git
+.git/
+.gitignore
+
+# Build artifacts
+dist/
+api/api
+api/ui/
+ui/dist/
+ui/node_modules/
+
+# Development
+.env
+*.log
+*.swp
+*.swo
+*~
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+*.md
+!README.md
+
+# Assets (source files)
+assets/
