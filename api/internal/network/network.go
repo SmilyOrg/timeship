@@ -59,7 +59,7 @@ func GetListenURLs(addr net.Addr) ([]ListenURL, error) {
 }
 
 // PrintListenURLs prints all URLs that a listener is available on
-func PrintListenURLs(addr net.Addr, apiPrefix string) error {
+func PrintListenURLs(addr net.Addr) error {
 	urls, err := GetListenURLs(addr)
 	if err != nil {
 		return err
@@ -80,7 +80,7 @@ func PrintListenURLs(addr net.Addr, apiPrefix string) error {
 		if url.Local {
 			prefix = "local"
 		}
-		log.Printf("  %-8s %s%s\n", prefix, url.URL, apiPrefix)
+		log.Printf("  %-8s %s\n", prefix, url.URL)
 	}
 	return nil
 }

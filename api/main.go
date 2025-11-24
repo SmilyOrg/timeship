@@ -33,10 +33,19 @@ var (
 	builtBy = "unknown"
 )
 
+func printBanner(version string) {
+	log.Printf(`
+ _______               __   _    
+/_  __(_)_ _  ___ ___ / /  (_)__ 
+ / / / /  ' \/ -_|_-</ _ \/ / _ \
+/_/ /_/_/_/_/\__/___/_//_/_/ .__/
+%25s /_/    
+`, version)
+	log.Println()
+}
+
 func main() {
-	log.SetFlags(
-		0,
-	)
+	log.SetFlags(0)
 
 	versionFlag := flag.Bool("version", false, "print version and exit")
 	flag.Parse()
@@ -46,7 +55,8 @@ func main() {
 		return
 	}
 
-	log.Printf("timeship %s", version)
+	// Print banner
+	printBanner(version)
 
 	godotenv.Load()
 
@@ -60,14 +70,21 @@ func main() {
 		}
 	}
 
+	// Get API prefix from environment or use default
+	apiPrefix := os.Getenv("TIMESHIP_API_PREFIX")
+	if apiPrefix == "" {
+		apiPrefix = "/api"
+	}
+
+	// Configuration section
+	log.Printf("Root: %s", rootDir)
+
 	// Create local adapter
 	localAdapter, err := local.New(rootDir)
 	if err != nil {
 		log.Fatalf("Failed to create local adapter: %v", err)
 	}
 	defer localAdapter.Close()
-
-	log.Printf("Timeship API serving files from: %s", rootDir)
 
 	// Create adapters map
 	adapters := map[string]adapter.Adapter{
@@ -91,12 +108,6 @@ func main() {
 		log.Fatalf("Failed to create server: %v", err)
 	}
 
-	// Get API prefix from environment or use default
-	apiPrefix := os.Getenv("TIMESHIP_API_PREFIX")
-	if apiPrefix == "" {
-		apiPrefix = "/api"
-	}
-
 	// Create HTTP server with routing
 	mux := http.NewServeMux()
 
@@ -112,12 +123,12 @@ func main() {
 	}
 
 	// Serve embedded UI if available (when built with -tags embedui)
+	uiEmbedded := false
 	if apiPrefix != "/" {
 		// Try to read from embedded FS to check if UI is available
 		_, err := StaticFs.Open("ui/dist")
-		if err != nil {
-			log.Printf("UI not embedded, serving API only (build with -tags embedui to embed UI)")
-		} else {
+		if err == nil {
+			uiEmbedded = true
 			// Hardcode well-known mime types, see https://github.com/golang/go/issues/32350
 			mime.AddExtensionType(".js", "text/javascript")
 			mime.AddExtensionType(".css", "text/css")
@@ -148,8 +159,6 @@ func main() {
 			// Wrap with cache control and index.html middleware
 			uiHandler := middleware.CacheControl()(middleware.IndexHTML()(uiMux))
 			mux.Handle("/", uiHandler)
-
-			log.Printf("Serving embedded UI at /")
 		}
 	}
 
@@ -175,12 +184,16 @@ func main() {
 
 	// Start server in a goroutine
 	go func() {
-		log.Printf("")
-		log.Println("Starting Timeship server")
-		if err := network.PrintListenURLs(listener.Addr(), apiPrefix); err != nil {
+		if !uiEmbedded {
+			log.Printf("API-only mode (build with -tags embedui to embed UI)")
+		}
+
+		log.Println("\nRunning (Press Ctrl+C to stop)")
+		if err := network.PrintListenURLs(listener.Addr()); err != nil {
 			log.Printf("Warning: couldn't list all network addresses: %v", err)
 			log.Printf("  API: http://%s%s", addr, apiPrefix)
 		}
+
 		if err := httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}
@@ -191,7 +204,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	log.Println("\nShutting down server...")
 
 	// Graceful shutdown with 30 second timeout
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -201,5 +214,5 @@ func main() {
 		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	fmt.Println("Server exited")
+	log.Println("Server stopped")
 }
