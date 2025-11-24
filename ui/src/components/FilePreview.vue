@@ -36,8 +36,8 @@
       </div>
       
       <!-- Preview Content -->
-      <div v-if="isTextFile" class="ui bottom attached segment" style="padding: 0;">
-        <div v-if="loadingContent" class="ui active centered inline loader"></div>
+      <div v-if="isTextFile" class="text-file ui bottom attached segment" style="padding: 0;">
+        <div v-if="loadingContent" class="ui active loader"></div>
         <div v-else-if="contentError" class="ui center aligned basic segment">
           <i class="large warning circle icon"></i>
           <div class="ui header">{{ contentError }}</div>
@@ -185,5 +185,9 @@ watch(() => [props.fileInfo, props.snapshot, isTextFile.value], () => {
 
 .action-column {
   flex: 0 0 auto;
+}
+
+.text-file {
+  height: 400px;
 }
 </style>
