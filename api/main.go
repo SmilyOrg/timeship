@@ -7,11 +7,14 @@ import (
 	"io/fs"
 	"log"
 	"mime"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -186,12 +189,21 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// Create listener to get actual address
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		log.Fatalf("Failed to start listener: %v", err)
+	}
+
 	// Start server in a goroutine
 	go func() {
 		log.Printf("")
-		log.Printf("Starting Timeship server")
-		log.Printf("  API: http://%s%s", addr, apiPrefix)
-		if err := httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Println("Starting Timeship server")
+		if err := printListenUrls(listener.Addr(), apiPrefix); err != nil {
+			log.Printf("Warning: couldn't list all network addresses: %v", err)
+			log.Printf("  API: http://%s%s", addr, apiPrefix)
+		}
+		if err := httpServer.Serve(listener); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server failed: %v", err)
 		}
 	}()
@@ -212,4 +224,79 @@ func main() {
 	}
 
 	fmt.Println("Server exited")
+}
+
+type listenUrl struct {
+	local bool
+	ipv6  bool
+	url   string
+}
+
+func getListenUrls(addr net.Addr) ([]listenUrl, error) {
+	var urls []listenUrl
+	switch vaddr := addr.(type) {
+	case *net.TCPAddr:
+		if vaddr.IP.IsUnspecified() {
+			ifaces, err := net.Interfaces()
+			if err != nil {
+				return urls, fmt.Errorf("unable to list interfaces: %v", err)
+			}
+			for _, i := range ifaces {
+				addrs, err := i.Addrs()
+				if err != nil {
+					return urls, fmt.Errorf("unable to list addresses for %v: %v", i.Name, err)
+				}
+				for _, a := range addrs {
+					switch v := a.(type) {
+					case *net.IPNet:
+						urls = append(urls, listenUrl{
+							local: v.IP.IsLoopback(),
+							ipv6:  v.IP.To4() == nil,
+							url:   fmt.Sprintf("http://%v", net.JoinHostPort(v.IP.String(), strconv.Itoa(vaddr.Port))),
+						})
+					default:
+						urls = append(urls, listenUrl{
+							url: fmt.Sprintf("http://%v", v),
+						})
+					}
+				}
+			}
+		} else {
+			urls = append(urls, listenUrl{
+				local: vaddr.IP.IsLoopback(),
+				url:   fmt.Sprintf("http://%v", vaddr.AddrPort()),
+			})
+		}
+	default:
+		urls = append(urls, listenUrl{
+			url: fmt.Sprintf("http://%v", addr),
+		})
+	}
+	return urls, nil
+}
+
+func printListenUrls(addr net.Addr, apiPrefix string) error {
+	urls, err := getListenUrls(addr)
+	if err != nil {
+		return err
+	}
+	// Sort by ipv4 first, then local, then url
+	sort.Slice(urls, func(i, j int) bool {
+		if urls[i].ipv6 != urls[j].ipv6 {
+			return !urls[i].ipv6
+		}
+		if urls[i].local != urls[j].local {
+			return urls[i].local
+		}
+		return urls[i].url < urls[j].url
+	})
+
+	for _, url := range urls {
+		prefix := "network"
+		if url.local {
+			prefix = "local"
+		}
+		log.Printf("  %-8s %s%s\n", prefix, url.url, apiPrefix)
+	}
+	return nil
 }
