@@ -120,24 +120,6 @@ export function useApis(endpoints: Ref<string[]>) {
   watch(queries, (newQueries) => {
     console.log("Queries updated:", newQueries);
   });
-  // const userQueries = useQueries({queries: queries})
-
-
-  // const queries = computed(() => {
-  //   return endpoints.value.map((endpoint) => ({
-  //     queryKey: [endpoint],
-  //     queryFn: async () => {
-  //       const response = await fetch(`http://localhost:8080${endpoint}`);
-  //       if (!response.ok) {
-  //         throw new Error('Request failed: ' + response.statusText);
-  //       }
-  //       return response.json();
-  //     },
-  //   }));
-  // });
-  const data = useQueries({ queries });
-  watch(data, (newData) => {
-    console.log("Data updated:", newData);
-  });
-  return data;
+  
+  return useQueries({ queries });
 }
