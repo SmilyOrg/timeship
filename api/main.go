@@ -11,11 +11,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
@@ -25,49 +20,10 @@ import (
 	"github.com/smilyorg/timeship/api/internal/adapter/local"
 	"github.com/smilyorg/timeship/api/internal/api"
 	"github.com/smilyorg/timeship/api/internal/middleware"
+	"github.com/smilyorg/timeship/api/internal/network"
 )
 
 //go:generate go tool oapi-codegen -config oapi-codegen.yaml api.yaml
-
-var staticCacheRegex = regexp.MustCompile(`.+\.\w`)
-
-// spaFs is a filesystem wrapper that serves index.html for SPA routing
-type spaFs struct {
-	root http.FileSystem
-}
-
-func (fs spaFs) Open(name string) (http.File, error) {
-	f, err := fs.root.Open(name)
-	if os.IsNotExist(err) && !strings.HasSuffix(name, ".br") && !strings.HasSuffix(name, ".gz") {
-		return fs.root.Open("index.html")
-	}
-	return f, err
-}
-
-// CacheControl middleware sets cache headers for static assets
-func CacheControl() func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		fn := func(w http.ResponseWriter, r *http.Request) {
-			if staticCacheRegex.MatchString(r.URL.Path) {
-				w.Header().Set("Cache-Control", "max-age=31536000")
-			}
-			next.ServeHTTP(w, r)
-		}
-		return http.HandlerFunc(fn)
-	}
-}
-
-// IndexHTML middleware appends index.html to directory requests
-func IndexHTML() func(next http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasSuffix(r.URL.Path, "/") || len(r.URL.Path) == 0 {
-				r.URL.Path = path.Join(r.URL.Path, "index.html")
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
 
 func main() {
 	godotenv.Load()
@@ -158,8 +114,8 @@ func main() {
 				panic(err)
 			}
 			uihandler := gzipped.FileServer(
-				spaFs{
-					root: http.FS(uifs),
+				middleware.SpaFs{
+					Root: http.FS(uifs),
 				},
 			)
 
@@ -168,7 +124,7 @@ func main() {
 			uiMux.Handle("/", uihandler)
 
 			// Wrap with cache control and index.html middleware
-			uiHandler := CacheControl()(IndexHTML()(uiMux))
+			uiHandler := middleware.CacheControl()(middleware.IndexHTML()(uiMux))
 			mux.Handle("/", uiHandler)
 
 			log.Printf("Serving embedded UI at /")
@@ -199,7 +155,7 @@ func main() {
 	go func() {
 		log.Printf("")
 		log.Println("Starting Timeship server")
-		if err := printListenUrls(listener.Addr(), apiPrefix); err != nil {
+		if err := network.PrintListenURLs(listener.Addr(), apiPrefix); err != nil {
 			log.Printf("Warning: couldn't list all network addresses: %v", err)
 			log.Printf("  API: http://%s%s", addr, apiPrefix)
 		}
@@ -224,79 +180,4 @@ func main() {
 	}
 
 	fmt.Println("Server exited")
-}
-
-type listenUrl struct {
-	local bool
-	ipv6  bool
-	url   string
-}
-
-func getListenUrls(addr net.Addr) ([]listenUrl, error) {
-	var urls []listenUrl
-	switch vaddr := addr.(type) {
-	case *net.TCPAddr:
-		if vaddr.IP.IsUnspecified() {
-			ifaces, err := net.Interfaces()
-			if err != nil {
-				return urls, fmt.Errorf("unable to list interfaces: %v", err)
-			}
-			for _, i := range ifaces {
-				addrs, err := i.Addrs()
-				if err != nil {
-					return urls, fmt.Errorf("unable to list addresses for %v: %v", i.Name, err)
-				}
-				for _, a := range addrs {
-					switch v := a.(type) {
-					case *net.IPNet:
-						urls = append(urls, listenUrl{
-							local: v.IP.IsLoopback(),
-							ipv6:  v.IP.To4() == nil,
-							url:   fmt.Sprintf("http://%v", net.JoinHostPort(v.IP.String(), strconv.Itoa(vaddr.Port))),
-						})
-					default:
-						urls = append(urls, listenUrl{
-							url: fmt.Sprintf("http://%v", v),
-						})
-					}
-				}
-			}
-		} else {
-			urls = append(urls, listenUrl{
-				local: vaddr.IP.IsLoopback(),
-				url:   fmt.Sprintf("http://%v", vaddr.AddrPort()),
-			})
-		}
-	default:
-		urls = append(urls, listenUrl{
-			url: fmt.Sprintf("http://%v", addr),
-		})
-	}
-	return urls, nil
-}
-
-func printListenUrls(addr net.Addr, apiPrefix string) error {
-	urls, err := getListenUrls(addr)
-	if err != nil {
-		return err
-	}
-	// Sort by ipv4 first, then local, then url
-	sort.Slice(urls, func(i, j int) bool {
-		if urls[i].ipv6 != urls[j].ipv6 {
-			return !urls[i].ipv6
-		}
-		if urls[i].local != urls[j].local {
-			return urls[i].local
-		}
-		return urls[i].url < urls[j].url
-	})
-
-	for _, url := range urls {
-		prefix := "network"
-		if url.local {
-			prefix = "local"
-		}
-		log.Printf("  %-8s %s%s\n", prefix, url.url, apiPrefix)
-	}
-	return nil
 }
