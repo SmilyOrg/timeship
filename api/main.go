@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
 	"io/fs"
@@ -25,7 +26,28 @@ import (
 
 //go:generate go tool oapi-codegen -config oapi-codegen.yaml api.yaml
 
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
+	builtBy = "unknown"
+)
+
 func main() {
+	log.SetFlags(
+		0,
+	)
+
+	versionFlag := flag.Bool("version", false, "print version and exit")
+	flag.Parse()
+
+	if *versionFlag {
+		fmt.Printf("timeship %s, commit %s, built on %s by %s\n", version, commit, date, builtBy)
+		return
+	}
+
+	log.Printf("timeship %s", version)
+
 	godotenv.Load()
 
 	// Get the root directory for the local adapter from environment or use current directory
