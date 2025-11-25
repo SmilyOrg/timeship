@@ -257,7 +257,7 @@ func TestPathTraversalPrevention(t *testing.T) {
 	})
 
 	t.Run("prevent ../../ traversal", func(t *testing.T) {
-		_, err := a.FileExists(url.URL{Scheme: "local", Path: "/../../outside.txt"})
+		_, err := a.ReadStream(url.URL{Scheme: "local", Path: "/../../outside.txt"})
 		if err == nil {
 			t.Error("expected error when trying to access file outside root")
 		}
@@ -266,14 +266,14 @@ func TestPathTraversalPrevention(t *testing.T) {
 	t.Run("absolute-looking paths are safely relative to root", func(t *testing.T) {
 		// Paths like "/etc/passwd" are interpreted as "etc/passwd" relative to the storage root
 		// This is safe because os.OpenRoot prevents access outside the root directory
-		exists, err := a.FileExists(url.URL{Scheme: "local", Path: "/etc/passwd"})
-		if err != nil {
-			t.Errorf("unexpected error: %v", err)
-		}
-		// Should return false (doesn't exist) but no error, because it's safely looking
+		_, err := a.ReadStream(url.URL{Scheme: "local", Path: "/etc/passwd"})
+		// Should get an error (doesn't exist) because it's safely looking
 		// for "etc/passwd" relative to tmpDir, not the system /etc/passwd
-		if exists {
+		if err == nil {
 			t.Error("etc/passwd should not exist in temp directory")
+		}
+		if !os.IsNotExist(err) {
+			t.Errorf("expected IsNotExist error, got: %v", err)
 		}
 	})
 }
@@ -387,92 +387,6 @@ func TestReadStream(t *testing.T) {
 	})
 }
 
-func TestFileExists(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	os.WriteFile(filepath.Join(tmpDir, "exists.txt"), []byte("content"), 0644)
-	os.Mkdir(filepath.Join(tmpDir, "dir"), 0755)
-
-	a, err := New(tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer a.Close()
-
-	t.Run("existing file", func(t *testing.T) {
-		exists, err := a.FileExists(url.URL{Scheme: "local", Path: "/exists.txt"})
-		if err != nil {
-			t.Fatalf("FileExists failed: %v", err)
-		}
-		if !exists {
-			t.Error("FileExists should return true for existing file")
-		}
-	})
-
-	t.Run("non-existent file", func(t *testing.T) {
-		exists, err := a.FileExists(url.URL{Scheme: "local", Path: "/nonexistent.txt"})
-		if err != nil {
-			t.Fatalf("FileExists failed: %v", err)
-		}
-		if exists {
-			t.Error("FileExists should return false for non-existent file")
-		}
-	})
-
-	t.Run("directory", func(t *testing.T) {
-		exists, err := a.FileExists(url.URL{Scheme: "local", Path: "/dir"})
-		if err != nil {
-			t.Fatalf("FileExists failed: %v", err)
-		}
-		if exists {
-			t.Error("FileExists should return false for directory")
-		}
-	})
-}
-
-func TestDirectoryExists(t *testing.T) {
-	tmpDir := t.TempDir()
-
-	os.Mkdir(filepath.Join(tmpDir, "dir"), 0755)
-	os.WriteFile(filepath.Join(tmpDir, "file.txt"), []byte("content"), 0644)
-
-	a, err := New(tmpDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer a.Close()
-
-	t.Run("existing directory", func(t *testing.T) {
-		exists, err := a.DirectoryExists(url.URL{Scheme: "local", Path: "/dir"})
-		if err != nil {
-			t.Fatalf("DirectoryExists failed: %v", err)
-		}
-		if !exists {
-			t.Error("DirectoryExists should return true for existing directory")
-		}
-	})
-
-	t.Run("non-existent directory", func(t *testing.T) {
-		exists, err := a.DirectoryExists(url.URL{Scheme: "local", Path: "/nonexistent"})
-		if err != nil {
-			t.Fatalf("DirectoryExists failed: %v", err)
-		}
-		if exists {
-			t.Error("DirectoryExists should return false for non-existent directory")
-		}
-	})
-
-	t.Run("file", func(t *testing.T) {
-		exists, err := a.DirectoryExists(url.URL{Scheme: "local", Path: "/file.txt"})
-		if err != nil {
-			t.Fatalf("DirectoryExists failed: %v", err)
-		}
-		if exists {
-			t.Error("DirectoryExists should return false for file")
-		}
-	})
-}
-
 func TestEdgeCases(t *testing.T) {
 	tmpDir := t.TempDir()
 
@@ -499,8 +413,8 @@ func TestEdgeCases(t *testing.T) {
 		}
 		defer os.Chmod(restrictedDir, 0755) // Restore permissions
 
-		// Try to check if a subdirectory exists - this should give a permission error
-		_, err := a.DirectoryExists(url.URL{Scheme: "local", Path: "/restricted/subdir"})
+		// Try to list a subdirectory - this should give a permission error
+		_, err := a.ListContents(url.URL{Scheme: "local", Path: "/restricted/subdir"})
 		// We expect an error, but not IsNotExist
 		if err == nil {
 			t.Skip("expected permission error but got none (might be running as root)")
@@ -522,5 +436,4 @@ func TestImplementsInterfaces(t *testing.T) {
 	// Test that adapter implements the expected interfaces
 	var _ adapter.Lister = a
 	var _ adapter.Reader = a
-	var _ adapter.Existence = a
 }

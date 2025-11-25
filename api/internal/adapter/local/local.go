@@ -55,6 +55,11 @@ func (a *Adapter) urlToRelPath(vfPath url.URL) (string, error) {
 	if path == "" {
 		path = "."
 	}
+	// Strip leading slash - paths are always relative to adapter root
+	path = strings.TrimPrefix(path, "/")
+	if path == "" {
+		path = "."
+	}
 	if !filepath.IsLocal(path) {
 		return "", fmt.Errorf("non-local paths are not supported: %s", path)
 	}
@@ -118,10 +123,10 @@ func (a *Adapter) ListContents(vfPath url.URL) ([]adapter.FileNode, error) {
 	nodes := make([]adapter.FileNode, 0, len(entries))
 	for _, info := range entries {
 		// Build the full path with adapter prefix
-		// fullPath := adapter.JoinPath(vfPath, info.Name(), adapterName)
-		// vfPath.JoinPath(f.Name(), )
+		// Always remove leading slash to avoid local:///path issues
 		filePath := vfPath
-		filePath.Path = path.Join(vfPath.Path, info.Name())
+		joinedPath := path.Join(vfPath.Path, info.Name())
+		filePath.Path = strings.TrimPrefix(joinedPath, "/")
 		filePath.RawQuery = ""
 
 		node := adapter.FileNode{

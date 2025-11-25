@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 
@@ -22,9 +23,14 @@ type mockAdapterV2 struct {
 	readErr     error
 	mimeTypeErr error
 	sizeErr     error
+	isFile      bool // if true, ListContents should fail to indicate this is a file
 }
 
 func (m *mockAdapterV2) ListContents(path url.URL) ([]adapter.FileNode, error) {
+	if m.isFile {
+		// Simulate "not a directory" error for files
+		return nil, &os.PathError{Op: "readdir", Path: path.String(), Err: os.ErrInvalid}
+	}
 	if m.listErr != nil {
 		return nil, m.listErr
 	}
@@ -297,6 +303,7 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 			content:  content,
 			mimeType: "text/plain",
 			size:     int64(len(content)),
+			isFile:   true,
 		}
 
 		storages := map[string]adapter.Adapter{
@@ -341,6 +348,7 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 			content:  binaryContent,
 			mimeType: "image/png",
 			size:     int64(len(binaryContent)),
+			isFile:   true,
 		}
 
 		storages := map[string]adapter.Adapter{
@@ -379,6 +387,7 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 			content:  largeContent,
 			mimeType: "text/plain",
 			size:     int64(len(largeContent)),
+			isFile:   true,
 		}
 
 		storages := map[string]adapter.Adapter{
@@ -414,6 +423,7 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 	t.Run("mime type detection error", func(t *testing.T) {
 		mock := &mockAdapterV2{
 			mimeTypeErr: http.ErrNotSupported,
+			isFile:      true,
 		}
 
 		storages := map[string]adapter.Adapter{
@@ -441,6 +451,7 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 		mock := &mockAdapterV2{
 			mimeType: "text/plain",
 			sizeErr:  http.ErrNotSupported,
+			isFile:   true,
 		}
 
 		storages := map[string]adapter.Adapter{
@@ -469,6 +480,7 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 			mimeType: "text/plain",
 			size:     100,
 			readErr:  http.ErrNotSupported,
+			isFile:   true,
 		}
 
 		storages := map[string]adapter.Adapter{
@@ -523,6 +535,7 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 			content:  content,
 			mimeType: "text/plain",
 			size:     int64(len(content)),
+			isFile:   true,
 		}
 
 		storages := map[string]adapter.Adapter{
