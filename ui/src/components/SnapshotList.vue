@@ -23,18 +23,18 @@
           v-for="snapshot in snapshots"
           :key="snapshot.id"
           :data-snapshot-id="snapshot.id"
-          :class="{ 'not-found': snapshot.notFound }"
+          :class="{ 'not-found': snapshot.node === null, 'unmodified': snapshot.unmodified }"
         >
           <td>
             <label>
               {{ snapshot.title }}
             </label>
           </td>
-          <td class="type">
+          <!--<td class="type">
             <label>
               {{ snapshot.type }}
             </label>
-          </td>
+          </td>-->
         </tr>
       </tbody>
     </table>
@@ -43,7 +43,7 @@
 
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted, watch, nextTick } from 'vue';
-import { useApi, useApis, type Snapshot as ApiSnapshot } from './api/api';
+import { useApi, useApis, type Snapshot as ApiSnapshot, type Node } from './api/api';
 import { format } from 'date-fns';
 
 interface SnapshotWithDate extends ApiSnapshot {
@@ -58,7 +58,8 @@ interface FormattedSnapshot {
   selected: boolean;
   timestamp?: string;
   marginBottom?: number;
-  notFound?: boolean;
+  node?: Node | null;
+  unmodified?: boolean;
 }
 
 const props = defineProps<{
@@ -73,7 +74,7 @@ const emit = defineEmits<{
 const { data } = useApi(ref("/storages/local/snapshots"));
 
 // Build endpoints for checking snapshot availability
-const snapshotCheckEndpoints = computed(() => {
+const nodeSnapshotEndpoints = computed(() => {
   const path = props.currentPath;
   const apiSnapshots = data.value?.snapshots || [];
   
@@ -99,25 +100,22 @@ const snapshotCheckEndpoints = computed(() => {
 });
 
 // Use useApis to check all snapshots in parallel
-const snapshotCheckResults = useApis(snapshotCheckEndpoints);
+const nodeSnapshots = useApis(nodeSnapshotEndpoints);
 
 // Create a map of snapshot availability from the query results
-const snapshotAvailability = computed(() => {
-  const map = new Map<string, boolean>();
+const nodeSnapshotById = computed(() => {
+  const map = new Map<string, Node | null>();
   const apiSnapshots = data.value?.snapshots || [];
   
   // If no path or at root, all snapshots are available
   if (!props.currentPath || props.currentPath === 'local://') {
-    apiSnapshots.forEach((snapshot: ApiSnapshot) => {
-      map.set(snapshot.id, true);
-    });
     return map;
   }
-  
+
   apiSnapshots.forEach((snapshot: ApiSnapshot, index: number) => {
-    const result = snapshotCheckResults.value[index];
+    const result = nodeSnapshots.value[index];
     // If query is successful (no error), the path exists
-    map.set(snapshot.id, result?.isSuccess === true);
+    map.set(snapshot.id, result?.isSuccess && result.data as Node || null);
   });
   
   return map;
@@ -302,6 +300,11 @@ const snapshots = computed(() => {
     if (nextSnapshot) {
       marginBottom = getSpaceFromTimeRange(nextSnapshot.date, s.date);
     }
+
+    const node = nodeSnapshotById.value.get(s.id);
+    const nextNode = nextSnapshot ? nodeSnapshotById.value.get(nextSnapshot.id) : null;
+
+    const unmodified = node && nextNode && node.last_modified === nextNode.last_modified;
     
     return {
       id: s.id,
@@ -310,7 +313,8 @@ const snapshots = computed(() => {
       selected: s.selected,
       timestamp: s.timestamp,
       marginBottom,
-      notFound: snapshotAvailability.value.get(s.id) === false,
+      node,
+      unmodified,
     };
   });
   
@@ -412,6 +416,10 @@ tr.not-found {
 
 tr.not-found td label {
   text-decoration: line-through;
+}
+
+tr.unmodified {
+  opacity: 0.5;
 }
 
 td label {
