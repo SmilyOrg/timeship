@@ -1,14 +1,23 @@
 <template>
   <div class="snapshot-container">
-    <div
-      class="selection-indicator"
-      :style="{
-        top: `${selectionTop}px`,
-        height: `${selectionHeight}px`,
-        opacity: selectionTop >= 0 ? 1 : 0
-      }"
-    ></div>
-    <table ref="tableRef">
+    <div class="controls">
+      <button 
+        :class="['toggle-btn', { active: !hideUnmodified }]"
+        @click="hideUnmodified = !hideUnmodified"
+        :title="hideUnmodified ? 'Show unmodified' : 'Hide unmodified'"
+      >
+        <i class="clock outline icon"></i>
+      </button>
+      <button 
+        :class="['toggle-btn', { active: !hideNotFound }]"
+        @click="hideNotFound = !hideNotFound"
+        :title="hideNotFound ? 'Show not found' : 'Hide not found'"
+      >
+        <i class="ban icon"></i>
+      </button>
+    </div>
+    <div class="table-wrapper" ref="tableWrapperRef">
+      <table ref="tableRef">
       <!-- <thead>
         <tr>
           <th>Time</th>
@@ -18,6 +27,11 @@
       <tbody
         @mousedown="startDrag"
         @touchstart="startDrag"
+        :style="{
+          '--selection-top': `${selectionTop}px`,
+          '--selection-height': `${selectionHeight}px`,
+          '--selection-opacity': selectionTop >= 0 ? 1 : 0
+        }"
       >
         <tr
           v-for="snapshot in snapshots"
@@ -38,6 +52,7 @@
         </tr>
       </tbody>
     </table>
+    </div>
   </div>
 </template>
 
@@ -73,19 +88,23 @@ const emit = defineEmits<{
 
 const { data } = useApi(ref("/storages/local/snapshots"));
 
+const isRootPath = computed(() => {
+  const path = props.currentPath;
+  return !path || path === 'local://';
+});
+
 // Build endpoints for checking snapshot availability
 const nodeSnapshotEndpoints = computed(() => {
-  const path = props.currentPath;
   const apiSnapshots = data.value?.snapshots || [];
   
   // If no path or at root, return empty array (no checks needed)
-  if (!path || path === 'local://') {
-    return [];
+  if (isRootPath.value) {
+    return apiSnapshots;
   }
 
   try {
     // Parse the path to extract storage and path components
-    const url = new URL(path);
+    const url = new URL(props.currentPath || '');
     const storage = url.protocol.replace(':', '');
     const urlPath = url.host + url.pathname;
     
@@ -104,18 +123,33 @@ const nodeSnapshots = useApis(nodeSnapshotEndpoints);
 
 // Create a map of snapshot availability from the query results
 const nodeSnapshotById = computed(() => {
-  const map = new Map<string, Node | null>();
+  const map = new Map<string, Node | null | undefined>();
   const apiSnapshots = data.value?.snapshots || [];
   
   // If no path or at root, all snapshots are available
-  if (!props.currentPath || props.currentPath === 'local://') {
+  if (isRootPath.value) {
     return map;
   }
 
   apiSnapshots.forEach((snapshot: ApiSnapshot, index: number) => {
     const result = nodeSnapshots.value[index];
     // If query is successful (no error), the path exists
-    map.set(snapshot.id, result?.isSuccess && result.data as Node || null);
+    if (!result) {
+      map.set(snapshot.id, undefined);
+      return;
+    }
+    if (result.isSuccess) {
+      map.set(snapshot.id, result.data as Node);
+      return;
+    }
+    if (result.isError) {
+      map.set(snapshot.id, null);
+      return;
+    }
+    if (result.isLoading) {
+      map.set(snapshot.id, undefined);
+      return;
+    }
   });
   
   return map;
@@ -123,9 +157,12 @@ const nodeSnapshotById = computed(() => {
 
 
 const tableRef = ref<HTMLElement | null>(null);
+const tableWrapperRef = ref<HTMLElement | null>(null);
 const isDragging = ref(false);
 const selectionTop = ref(-1);
 const selectionHeight = ref(0);
+const hideUnmodified = ref(true);
+const hideNotFound = ref(true);
 
 const select = (snapshot: FormattedSnapshot | null) => {
   if (!snapshot?.id || snapshot?.id === 'current') {
@@ -213,28 +250,46 @@ const updateSelectionPosition = () => {
     return;
   }
   
-  const rows = tableRef.value.querySelectorAll('tbody tr');
+  const tbody = tableRef.value.querySelector('tbody');
+  if (!tbody) return;
+  
+  const rows = tbody.querySelectorAll('tr');
   const selectedRow = rows[selectedIndex] as HTMLElement;
   if (!selectedRow) return;
   
-  const tableRect = tableRef.value.getBoundingClientRect();
+  const tbodyRect = tbody.getBoundingClientRect();
   const rowRect = selectedRow.getBoundingClientRect();
   
-  selectionTop.value = rowRect.top - tableRect.top;
+  selectionTop.value = rowRect.top - tbodyRect.top;
   selectionHeight.value = rowRect.height;
 };
 
-watch(() => props.modelValue, () => {
-  nextTick(() => {
-    updateSelectionPosition();
-  });
-});
-
-watch(data, () => {
-  nextTick(() => {
-    updateSelectionPosition();
-  });
-});
+const formatTimestamp = (date: Date, currentYear: number, hasDuplicateDate: boolean, hasDuplicateTime: boolean) => {
+  const year = date.getFullYear();
+  const day = date.getDate();
+  const month = format(date, 'MMM');
+  
+  // Format day with leading space for single digits
+  const dayStr = day < 10 ? `0${day}` : `${day}`;
+  
+  // Build the date part
+  let result = `${dayStr} ${month}`;
+  
+  // Add year if not current year
+  if (year !== currentYear) {
+    result += ` ${year}`;
+  }
+  
+  // Add time if there are multiple snapshots on the same date
+  if (hasDuplicateDate) {
+    const time = hasDuplicateTime 
+      ? format(date, 'HH:mm:ss')  // Include seconds to disambiguate
+      : format(date, 'HH:mm');
+    result += ` • ${time}`;
+  }
+  
+  return result;
+};
 
 onMounted(() => {
   document.addEventListener('mousemove', onMouseMove);
@@ -304,7 +359,7 @@ const snapshots = computed(() => {
     const node = nodeSnapshotById.value.get(s.id);
     const nextNode = nextSnapshot ? nodeSnapshotById.value.get(nextSnapshot.id) : null;
 
-    const unmodified = node && nextNode && node.last_modified === nextNode.last_modified;
+    const unmodified = node && nextNode && node.type === "file" && node.last_modified === nextNode.last_modified;
     
     return {
       id: s.id,
@@ -318,55 +373,91 @@ const snapshots = computed(() => {
     };
   });
   
-  return [current.value, ...formattedSnapshots];
+  // Filter out unmodified snapshots if hideUnmodified is true
+  const filtered = isRootPath.value ? formattedSnapshots : formattedSnapshots.filter(s => {
+    // console.log('Filtering snapshot:', s.id, s.unmodified, s.node === undefined && "undefined" || " ", s.node === null && "null" || " ", !!s.node);
+    return s.selected ||
+      (!hideUnmodified.value || s.unmodified !== true) &&
+      (!hideNotFound.value || s.node !== null);
+  });
+  
+  return [current.value, ...filtered];
 });
 
-const formatTimestamp = (date: Date, currentYear: number, hasDuplicateDate: boolean, hasDuplicateTime: boolean) => {
-  const year = date.getFullYear();
-  const day = date.getDate();
-  const month = format(date, 'MMM');
-  
-  // Format day with leading space for single digits
-  const dayStr = day < 10 ? `0${day}` : `${day}`;
-  
-  // Build the date part
-  let result = `${dayStr} ${month}`;
-  
-  // Add year if not current year
-  if (year !== currentYear) {
-    result += ` ${year}`;
-  }
-  
-  // Add time if there are multiple snapshots on the same date
-  if (hasDuplicateDate) {
-    const time = hasDuplicateTime 
-      ? format(date, 'HH:mm:ss')  // Include seconds to disambiguate
-      : format(date, 'HH:mm');
-    result += ` • ${time}`;
-  }
-  
-  return result;
-};
+watch(() => props.modelValue, () => {
+  nextTick(() => {
+    updateSelectionPosition();
+  });
+});
+
+watch(snapshots, () => {
+  nextTick(() => {
+    updateSelectionPosition();
+  });
+});
 
 </script>
 
 <style scoped>
 
 .snapshot-container {
-  position: relative;
+  display: flex;
+  flex-direction: column;
   max-height: 90vh;
-  overflow-y: scroll;
+  width: 140px;
 }
 
-.selection-indicator {
-  position: absolute;
-  left: 0;
-  right: 0;
-  background-color: #eef;
-  border-left: 2px solid rgb(178, 178, 255);
-  transition: top 0.15s ease-out, height 0.15s ease-out, opacity 0.15s ease-out;
+.controls {
+  position: sticky;
+  top: 0;
+  background-color: white;
+  padding: 4px 8px;
+  border-bottom: 1px solid #e5e5e5;
+  z-index: 10;
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
+
+.table-wrapper {
+  position: relative;
+  overflow-y: scroll;
+  flex: 1;
+}
+
+.toggle-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  opacity: 0.4;
+  color: var(--color-text-dark);
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.toggle-btn i {
   pointer-events: none;
-  z-index: 0;
+  margin: 1px 1px 0 0;
+}
+
+.toggle-btn:hover {
+  background-color: rgba(90, 93, 94, 0.1);
+}
+
+.toggle-btn.active {
+  /* background-color: rgba(90, 93, 94, 0.31); */
+  opacity: 1;
+}
+
+.toggle-btn.active:hover {
+  background-color: rgba(90, 93, 94, 0.41);
 }
 
 table {
@@ -390,6 +481,22 @@ thead {
 
 tbody {
   cursor: grab;
+  position: relative;
+}
+
+tbody::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--selection-top, 0);
+  height: var(--selection-height, 0);
+  background-color: #eef;
+  border-left: 2px solid rgb(178, 178, 255);
+  opacity: var(--selection-opacity, 0);
+  transition: top 0.15s ease-out, height 0.15s ease-out, opacity 0.15s ease-out;
+  pointer-events: none;
+  z-index: -1;
 }
 
 tbody:active {
@@ -410,16 +517,12 @@ tr {
   line-height: 1;
 }
 
-tr.not-found {
-  opacity: 0.3;
+tr.not-found, tr.unmodified {
+  opacity: 0.5;
 }
 
 tr.not-found td label {
   text-decoration: line-through;
-}
-
-tr.unmodified {
-  opacity: 0.5;
 }
 
 td label {

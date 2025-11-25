@@ -53,7 +53,7 @@
       <div v-else class="ui bottom attached placeholder segment">
         <div class="ui icon header">
           <i class="search icon"></i>
-          Detailed preview coming soon...
+          Preview not available.
         </div>
       </div>
     </div>
