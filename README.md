@@ -153,9 +153,9 @@ Timeship automatically detects and parses common ZFS snapshot naming patterns:
 - [x] File restoration functionality
 - [x] Pre-built binaries for releases
 - [x] Docker container support
-- [ ] Text file preview
+- [x] Text file preview
+- [x] Docker container support
 - [ ] Image file preview
-- [ ] Docker container support
 - [ ] Configuration file support (YAML/JSON)
 - [ ] Configurable snapshot name patterns via config file
 - [ ] Authentication and authorization
