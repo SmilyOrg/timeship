@@ -1,17 +1,19 @@
 services:
   timeship:
+    container_name: timeship
     build:
       context: .
       dockerfile: Dockerfile
     ports:
       - "8080:8080"
     volumes:
-      # Mount your ZFS datasets or snapshot directories here
-      # Example:
-      # - /your/zfs/pool:/data:ro
-      # - ./data:/data:ro
-      # Note: :z flag allows SELinux to relabel the content (shared volume)
       - ./:/mnt/:ro,z
-    environment:
-      - TIMESHIP_ROOT=/mnt
     restart: unless-stopped
+
+  # Local Docker registry for "task docker:multiarch:push:local"
+  registry:
+    image: registry:2
+    ports:
+      - 5000:5000
+    volumes:
+      - ./dist/registry:/var/lib/registry

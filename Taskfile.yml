@@ -7,6 +7,8 @@ version: '3'
 
 vars:
   BINARY_NAME: timeship
+  DOCKER_REPO: ghcr.io/smilyorg/timeship
+  DOCKER_REPO_LOCAL: localhost:5000/timeship
   BUILD_OS_ARCH:
     - darwin/amd64
     - darwin/arm64
@@ -23,12 +25,51 @@ vars:
     - windows/386
     - windows/amd64
     - windows/arm64
+  DOCKER_ARCH:
+    - linux/amd64
+    - linux/arm64
+  DOCKER_ANNOTATIONS: >-
+    --annotation 'index:org.opencontainers.image.source=https://github.com/smilyorg/timeship'
+    --annotation 'index:org.opencontainers.image.description=ZFS snapshot browser and time machine'
+    --annotation 'index:org.opencontainers.image.licenses=MIT'
   VERSION:
     sh: git describe --tags --match "v*" --always --dirty
-  DOCKER_IMAGE: '{{.BINARY_NAME}}'
-  DOCKER_TAG: '{{.VERSION}}'
 
 tasks:
+  default:
+    cmds:
+      - task --list
+      - echo ""
+      - echo "Common tasks:"
+      - "echo '  task dev: Run the API and UI in watch mode'"
+      - "echo '  task api: Run the API in watch mode'"
+      - "echo '  task ui: Run the UI in watch mode'"
+    silent: true
+
+  check:
+    desc: Check that dependencies and generated files are up to date
+    cmds:
+      - task: tidy
+      - git diff --exit-code api/go.mod api/go.sum
+      - task: gen
+      - git diff --exit-code
+
+  tidy:
+    desc: Tidy go.mod and go.sum
+    dir: api
+    cmds:
+      - go mod tidy
+
+  gen:
+    desc: Generate code from OpenAPI spec
+    dir: api
+    cmds:
+      - go generate -x
+
+  deps:
+    desc: Build UI frontend
+    deps:
+      - build:ui
 
   build:ui:
     desc: Build the UI frontend
@@ -47,7 +88,6 @@ tasks:
       - '**/*.go'
       - 'go.mod'
       - '**/*.yaml'
-      - '**/*.syso'
     cmds:
       - go build
 
@@ -55,9 +95,9 @@ tasks:
     desc: Run the API
     dir: api
     cmds:
-      - ./api
+      - ./timeship
 
-  run:ui:
+  run:
     desc: Run the API with embedded UI
     deps:
       - build:ui
@@ -66,7 +106,7 @@ tasks:
       TIMESHIP_API_PREFIX: /api
     cmds:
       - go build -tags embedui
-      - ./api
+      - ./timeship
 
   build:run:api:
     desc: Build and run the API
@@ -93,20 +133,20 @@ tasks:
     cmds:
       - watchexec --exts go -r task build:run:api
 
-  package:all:
-    desc: Build and package the application for all platforms
-    cmds:
-      - task: build:ui
-      - task: build:release:all
-      - task: archive:all
-      - task: checksums
-
   package:
     desc: Build and package the application for the current platform
     cmds:
       - task: build:ui
       - task: build:release
       - task: archive
+      - task: checksums
+
+  package:all:
+    desc: Build and package the application for all platforms
+    cmds:
+      - task: build:ui
+      - task: build:release:all
+      - task: archive:all
       - task: checksums
 
   build:release:
@@ -125,8 +165,9 @@ tasks:
         COMMIT=$(git rev-parse HEAD)
         DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
         BUILT_BY=$(whoami)
+        LDFLAGS="-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE -X main.builtBy=$BUILT_BY"
         GOOS={{.GOOS}} GOARCH={{.GOARCH}} CGO_ENABLED=0 go build \
-          -ldflags "-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE -X main.builtBy=$BUILT_BY" \
+          -ldflags "${LDFLAGS}" \
           -tags embedui \
           -o "{{.OUTPUT}}" \
           || echo "build failed for {{.OUTPUT}}"
@@ -143,6 +184,22 @@ tasks:
           GOOS: "{{(.ITEM | split \"/\")._0}}"
           GOARCH: "{{(.ITEM | split \"/\")._1}}"
 
+  archive:
+    desc: Archive the release binary for GOOS and GOARCH (current platform by default)
+    vars:
+      INPUT: "dist/bin/{{.BINARY_NAME}}_{{.VERSION}}_{{ coalesce .GOOS OS }}_{{ coalesce .GOARCH ARCH }}{{ if eq (coalesce .GOOS OS) \"windows\" }}.exe{{ end }}"
+      OUTPUT: "dist/archives/{{.BINARY_NAME}}_{{.VERSION}}_{{ coalesce .GOOS OS }}_{{ coalesce .GOARCH ARCH }}.zip"
+    sources:
+      - "{{.INPUT}}"
+    generates:
+      - "{{.OUTPUT}}"
+    deps:
+      - task: archive:dir
+    cmds:
+      - echo "archive {{.OUTPUT}}"
+      - cd api && go run ./cmd/zip "../{{.OUTPUT}}" "../{{.INPUT}}"
+    silent: true
+
   archive:all:
     desc: Archive all release binaries
     deps:
@@ -158,43 +215,90 @@ tasks:
     dir: dist/archives
     internal: true
 
-  archive:
-    desc: Archive the release binary for GOOS and GOARCH (current platform by default)
-    vars:
-      INPUT: "dist/bin/{{.BINARY_NAME}}_{{.VERSION}}_{{ coalesce .GOOS OS }}_{{ coalesce .GOARCH ARCH }}{{ if eq (coalesce .GOOS OS) \"windows\" }}.exe{{ end }}"
-      OUTPUT: "dist/archives/{{.BINARY_NAME}}_{{.VERSION}}_{{ coalesce .GOOS OS }}_{{ coalesce .GOARCH ARCH }}.zip"
-    sources:
-      - "{{.INPUT}}"
-    generates:
-      - "{{.OUTPUT}}"
-    deps:
-      - task: archive:dir
-    cmds:
-      - echo "archive {{.OUTPUT}}"
-      - mkdir -p $(dirname "{{.OUTPUT}}")
-      - cd dist/bin && zip -q "../../{{.OUTPUT}}" $(basename "{{.INPUT}}")
-    silent: true
-
   checksums:
     desc: Generate checksums for all archives
-    dir: dist/archives
     cmds:
-      - sha256sum *.zip > checksums.txt
+      - cd api && go run ./cmd/sha256 ../dist/archives/*.zip > ../dist/archives/checksums.txt
 
-  docker:build:
-    desc: Build Docker image
+  test:
+    desc: Run all go tests
+    dir: api
     cmds:
-      - docker build -t {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}} -t {{.DOCKER_IMAGE}}:latest .
+      - go test -v -race -cover ./...
 
-  docker:run:
-    desc: Run Docker container
+  docker:
+    desc: Build a Docker image with the latest git tag
+    vars:
+      TAGS: >-
+        {{- if (regexMatch "^v[0-9]+\\.[0-9]+\\.[0-9]+$" .VERSION) }}
+          {{- $versionParts := regexFindAll "[0-9]+" .VERSION 3 }}
+          {{- $major := index $versionParts 0 }}
+          {{- $minor := index $versionParts 1 }}
+          {{- $patch := index $versionParts 2 }}
+          -t {{.DOCKER_REPO}}:latest
+          -t {{.DOCKER_REPO}}:v{{$major}}
+          -t {{.DOCKER_REPO}}:v{{$major}}.{{$minor}}
+          -t {{.DOCKER_REPO}}:v{{$major}}.{{$minor}}.{{$patch}}
+        {{- else if (regexMatch "^v[0-9]+\\.[0-9]+\\.[0-9]+" .VERSION) }}
+          -t {{.DOCKER_REPO}}:{{.VERSION}}
+        {{- else }}
+        {{- end }}
+    preconditions:
+      - sh: test -n "{{.TAGS}}"
+        msg: "Git tag must be in the format vMAJOR.MINOR.PATCH* for docker build: {{.VERSION}}"
+    cmds:
+      - |
+        VERSION={{.VERSION}}
+        COMMIT=$(git rev-parse HEAD)
+        DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+        BUILT_BY=$(whoami)
+        LDFLAGS="-X main.version=$VERSION -X main.commit=$COMMIT -X main.date=$DATE -X main.builtBy=$BUILT_BY"
+        docker build --build-arg LDFLAGS="$LDFLAGS" {{.TAGS | replace "\n" " "}} -f Dockerfile {{.EXTRA_ARGS}} .
+
+  docker:multiarch:
+    desc: Build multi-architecture Docker images
     deps:
-      - docker:build
-    cmds:
-      - docker run --rm -p 8080:8080 {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}}
+      - task: docker
+        vars:
+          EXTRA_ARGS: >-
+            --platform {{ join "," .DOCKER_ARCH }}
+            {{.EXTRA_ARGS}}
+          DOCKER_REPO: "{{.DOCKER_REPO}}"
 
-  docker:push:
-    desc: Push Docker image to registry
+  docker:multiarch:push:
+    desc: Build and push multi-architecture Docker images to GitHub Container Registry
+    deps:
+      - task: docker:multiarch
+        vars:
+          EXTRA_ARGS: >-
+            --iidfile ../../.docker-image-id
+            --push {{ .DOCKER_ANNOTATIONS }}
+          DOCKER_REPO: "{{.DOCKER_REPO}}"
+
+  docker:multiarch:push:local:
+    desc: Build and push multi-architecture Docker images to local registry
+    preconditions:
+      - sh: curl localhost:5000/v2/_catalog
+        msg: "Local Docker registry is not running. Run 'docker compose up -d registry' to start it."
     cmds:
-      - docker push {{.DOCKER_IMAGE}}:{{.DOCKER_TAG}}
-      - docker push {{.DOCKER_IMAGE}}:latest
+      - task: docker:multiarch:push
+        vars:
+          DOCKER_REPO: "{{.DOCKER_REPO_LOCAL}}"
+
+  release:local:
+    desc: Build, package, and create a local Docker image
+    cmds:
+      - task: package:all
+      - task: docker
+
+  release:local:multiarch:
+    desc: Build and create a multi-architecture local Docker image
+    cmds:
+      - task: package:all
+      - task: docker:multiarch:push:local
+
+  release:version:
+    desc: Display the current version
+    cmds:
+      - echo {{ .VERSION }}
+    silent: true

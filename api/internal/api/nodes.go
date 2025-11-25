@@ -12,8 +12,9 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"timeship/internal/adapter"
+
 	"github.com/charlievieth/fastwalk"
-	"github.com/smilyorg/timeship/api/internal/adapter"
 )
 
 // unencodedPath returns the path from a url.URL without URL encoding

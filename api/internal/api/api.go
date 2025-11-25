@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/smilyorg/timeship/api/internal/adapter"
+	"timeship/internal/adapter"
 )
 
 // Server implements the ServerInterface

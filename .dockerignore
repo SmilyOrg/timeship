@@ -1,12 +1,11 @@
 # Git
 .git/
 .gitignore
+.github/
 
 # Build artifacts
-dist/
-api/api
-api/ui/
-ui/dist/
+.task/
+api/timeship
 ui/node_modules/
 
 # Development

@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/smilyorg/timeship/api/internal/adapter"
+	"timeship/internal/adapter"
 )
 
 const adapterName = "local"

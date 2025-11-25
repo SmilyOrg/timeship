@@ -42,7 +42,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smilyorg/timeship/api/internal/adapter"
+	"timeship/internal/adapter"
 )
 
 // ZFSConfig holds configuration for the ZFS snapshot provider

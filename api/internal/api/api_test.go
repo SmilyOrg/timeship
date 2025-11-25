@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smilyorg/timeship/api/internal/adapter"
+	"timeship/internal/adapter"
 )
 
 // mockAdapterV2 implements adapter.Lister and adapter.Reader for testing v2 API

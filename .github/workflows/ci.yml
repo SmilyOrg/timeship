@@ -1,0 +1,155 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    types: [opened, synchronize]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'api/go.mod'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install taskfile
+        run: sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+      - name: Check dependencies & generated files
+        run: task check
+
+      - name: Build/download dependencies
+        run: task deps
+
+      - name: Run unit tests
+        run: task test
+
+      - name: Build application
+        run: |
+          task build:release OUTPUT=./timeship
+          ./timeship -version
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: timeship-binary
+          path: ./timeship
+          retention-days: 1
+
+  release:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'api/go.mod'
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install taskfile
+        run: sh -c "$(curl --location https://taskfile.dev/install.sh)" -- -d -b /usr/local/bin
+
+      - name: Build & package all platforms
+        run: task package:all
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(task release:version)
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Upload build artifacts (PR)
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-artifacts
+          path: |
+            dist/archives/*.zip
+            dist/archives/checksums.txt
+          retention-days: 30
+
+      - name: Attest release artifacts
+        if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-checksums: dist/archives/checksums.txt
+
+      - name: Create GitHub Release
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          name: ${{ steps.version.outputs.VERSION }}
+          tag_name: ${{ steps.version.outputs.VERSION }}
+          target_commitish: ${{ github.sha }}
+          files: |
+            dist/archives/*.zip
+            dist/archives/checksums.txt
+          fail_on_unmatched_files: true
+          generate_release_notes: true
+
+      - name: Log in to the Container registry
+        if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker multiarch build
+        if: github.event_name == 'push'
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+
+      - name: Build & push Docker images
+        if: github.event_name == 'push'
+        id: docker
+        run: |
+          task docker:multiarch:push
+          echo "DIGEST=$(cat ./.docker-image-id)" >> $GITHUB_OUTPUT
+
+      - name: Attest Docker image
+        if: github.event_name == 'push'
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME}}
+          subject-digest: ${{ steps.docker.outputs.DIGEST }}
+          push-to-registry: true

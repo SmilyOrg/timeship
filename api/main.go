@@ -15,13 +15,14 @@ import (
 	"syscall"
 	"time"
 
+	"timeship/internal/adapter"
+	"timeship/internal/adapter/local"
+	"timeship/internal/api"
+	"timeship/internal/middleware"
+	"timeship/internal/network"
+
 	"github.com/joho/godotenv"
 	"github.com/lpar/gzipped"
-	"github.com/smilyorg/timeship/api/internal/adapter"
-	"github.com/smilyorg/timeship/api/internal/adapter/local"
-	"github.com/smilyorg/timeship/api/internal/api"
-	"github.com/smilyorg/timeship/api/internal/middleware"
-	"github.com/smilyorg/timeship/api/internal/network"
 )
 
 //go:generate go tool oapi-codegen -config oapi-codegen.yaml api.yaml

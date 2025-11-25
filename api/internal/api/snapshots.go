@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/smilyorg/timeship/api/internal/adapter"
+	"timeship/internal/adapter"
 )
 
 // GetStoragesStorageSnapshots handles getting snapshots at storage root

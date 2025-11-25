@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/smilyorg/timeship/api/internal/adapter"
+	"timeship/internal/adapter"
 )
 
 func TestNew(t *testing.T) {
