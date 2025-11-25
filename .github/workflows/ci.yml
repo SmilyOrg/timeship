@@ -53,7 +53,7 @@ jobs:
 
       - name: Build application
         run: |
-          task build:release OUTPUT=./timeship
+          task build:release OUTPUT=../timeship
           ./timeship -version
 
       - name: Upload build artifact
