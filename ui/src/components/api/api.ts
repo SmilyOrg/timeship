@@ -1,8 +1,6 @@
 import { useQueries, useQuery } from "@tanstack/vue-query";
-import { computed, watch, type Ref } from "vue";
+import { computed, type Ref } from "vue";
 import { API_BASE_URL } from "../../config";
-
-console.log("API_BASE_URL:", API_BASE_URL);
 
 export interface Snapshot {
   id: string;
@@ -90,7 +88,6 @@ export function useApi(endpoint: Ref<string>) {
 
 export function useApis(endpoints: Ref<string[]>) {
   const queries = computed(() => {
-    console.log("Endpoints:", endpoints.value);
     return endpoints.value.map(endpoint => ({
       queryKey: [endpoint],
       queryFn: async () => {
@@ -116,9 +113,6 @@ export function useApis(endpoints: Ref<string[]>) {
         return failureCount < 3;
       },
     }));
-  });
-  watch(queries, (newQueries) => {
-    console.log("Queries updated:", newQueries);
   });
   
   return useQueries({ queries });

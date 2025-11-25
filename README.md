@@ -163,7 +163,7 @@ Timeship automatically detects and parses common ZFS snapshot naming patterns:
 - [ ] Keyboard shortcuts
 - [ ] Snapshot source: git commits
 - [ ] Snapshot source: borg backups
-- [ ] Diff view between snapshot versions
+- [ ] Diff view between snapshots
 - [ ] Search within snapshots
 - [ ] Timeline visualization
 - [ ] File metadata display

@@ -2,6 +2,7 @@
   <div class="snapshot-container">
     <div class="controls">
       <button 
+        v-if="node?.type === 'file'"
         :class="['toggle-btn', { active: !hideUnmodified }]"
         @click="hideUnmodified = !hideUnmodified"
         :title="hideUnmodified ? 'Show unmodified' : 'Hide unmodified'"
@@ -80,6 +81,7 @@ interface FormattedSnapshot {
 const props = defineProps<{
   modelValue?: string | null;
   currentPath?: string;
+  node?: Node;
 }>();
 
 const emit = defineEmits<{
@@ -113,7 +115,7 @@ const nodeSnapshotEndpoints = computed(() => {
       `/storages/${storage}/nodes/${urlPath}?snapshot=${snapshot.id}`
     );
   } catch (e) {
-    console.error('Invalid path:', path, e);
+    console.error('Invalid path:', props.currentPath, e);
     return [];
   }
 });
@@ -356,10 +358,12 @@ const snapshots = computed(() => {
       marginBottom = getSpaceFromTimeRange(nextSnapshot.date, s.date);
     }
 
-    const node = nodeSnapshotById.value.get(s.id);
-    const nextNode = nextSnapshot ? nodeSnapshotById.value.get(nextSnapshot.id) : null;
+    const snapNode = nodeSnapshotById.value.get(s.id);
+    const nextSnapNode = nextSnapshot ? nodeSnapshotById.value.get(nextSnapshot.id) : null;
 
-    const unmodified = node && nextNode && node.type === "file" && node.last_modified === nextNode.last_modified;
+    const unmodified = snapNode && nextSnapNode &&
+      snapNode.type === "file" &&
+      snapNode.last_modified === nextSnapNode.last_modified;
     
     return {
       id: s.id,
@@ -368,14 +372,13 @@ const snapshots = computed(() => {
       selected: s.selected,
       timestamp: s.timestamp,
       marginBottom,
-      node,
-      unmodified,
+      node: snapNode,
+      unmodified: unmodified == null ? undefined : unmodified,
     };
   });
   
   // Filter out unmodified snapshots if hideUnmodified is true
   const filtered = isRootPath.value ? formattedSnapshots : formattedSnapshots.filter(s => {
-    // console.log('Filtering snapshot:', s.id, s.unmodified, s.node === undefined && "undefined" || " ", s.node === null && "null" || " ", !!s.node);
     return s.selected ||
       (!hideUnmodified.value || s.unmodified !== true) &&
       (!hideNotFound.value || s.node !== null);
@@ -418,6 +421,8 @@ watch(snapshots, () => {
   gap: 4px;
   justify-content: flex-end;
   flex-shrink: 0;
+  height: 36px;
+  align-items: center;
 }
 
 .table-wrapper {

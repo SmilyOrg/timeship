@@ -3,6 +3,7 @@
     <snapshot-list
       :model-value="selectedSnapshot"
       :current-path="path"
+      :node="node"
       @update:model-value="onSnapshotChange">
     </snapshot-list>
     <div class="explorer">
@@ -83,7 +84,6 @@ const breadcrumbItems = computed(() => {
 const parsedPath = computed(() => {
   const pathArray = Array.isArray(props.path) ? props.path : props.path ? [props.path] : [];
   const pathStr = pathArray.join('/');
-  console.log('Parsed path:', props.storage, pathStr);
   return { storage: props.storage, path: pathStr };
 });
 
@@ -98,28 +98,24 @@ const apiEndpoint = computed(() => {
   return params.toString() ? `${base}?${params.toString()}` : base;
 });
 
-watch(apiEndpoint, (newEndpoint) => {
-  console.log('API Endpoint updated:', newEndpoint);
-}, { immediate: true });
-
 // Fetch data from API
-const { data, error, isLoading } = useApi(apiEndpoint);
+const { data: node, error, isLoading } = useApi(apiEndpoint);
 
 // Extract nodes from API response
 const nodes = computed(() => {
-  return data.value?.files || [];
+  return node.value?.files || [];
 });
 
 // Determine if we're viewing a file (API returns a single file object instead of a files array)
 const isViewingFile = computed(() => {
-  return data.value && !data.value.files;
+  return node.value && !node.value.files;
 });
 
 // Get current file info when viewing a file
 const currentFileInfo = computed<Node | null>(() => {
-  if (isViewingFile.value && data.value) {
+  if (isViewingFile.value && node.value) {
     // When viewing a file, the API returns the file object directly
-    return data.value as Node;
+    return node.value as Node;
   }
   return null;
 });
@@ -128,7 +124,6 @@ const onPathChange = (newPath: string) => {
   if (path.value === newPath) {
     return;
   }
-  console.log('Path changed to:', newPath);
   
   // Parse the new path to extract storage and path
   try {
