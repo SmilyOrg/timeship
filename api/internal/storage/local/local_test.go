@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"timeship/internal/adapter"
+	"timeship/internal/storage"
 )
 
 func TestNew(t *testing.T) {
@@ -433,7 +433,7 @@ func TestImplementsInterfaces(t *testing.T) {
 	}
 	defer a.Close()
 
-	// Test that adapter implements the expected interfaces
-	var _ adapter.Lister = a
-	var _ adapter.Reader = a
+	// Test that storage implements the expected interfaces
+	var _ storage.Lister = a
+	var _ storage.Reader = a
 }

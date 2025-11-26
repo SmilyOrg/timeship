@@ -10,12 +10,12 @@ import (
 	"strings"
 	"testing"
 
-	"timeship/internal/adapter"
+	"timeship/internal/storage"
 )
 
-// mockAdapterV2 implements adapter.Lister and adapter.Reader for testing v2 API
-type mockAdapterV2 struct {
-	nodes       []adapter.FileNode
+// mockStorageV2 implements storage.Lister and storage.Reader for testing v2 API
+type mockStorageV2 struct {
+	nodes       []storage.FileNode
 	listErr     error
 	content     string
 	mimeType    string
@@ -26,7 +26,7 @@ type mockAdapterV2 struct {
 	isFile      bool // if true, ListContents should fail to indicate this is a file
 }
 
-func (m *mockAdapterV2) ListContents(path url.URL) ([]adapter.FileNode, error) {
+func (m *mockStorageV2) ListContents(path url.URL) ([]storage.FileNode, error) {
 	if m.isFile {
 		// Simulate "not a directory" error for files
 		return nil, &os.PathError{Op: "readdir", Path: path.String(), Err: os.ErrInvalid}
@@ -37,21 +37,21 @@ func (m *mockAdapterV2) ListContents(path url.URL) ([]adapter.FileNode, error) {
 	return m.nodes, nil
 }
 
-func (m *mockAdapterV2) MimeType(path url.URL) (string, error) {
+func (m *mockStorageV2) MimeType(path url.URL) (string, error) {
 	if m.mimeTypeErr != nil {
 		return "", m.mimeTypeErr
 	}
 	return m.mimeType, nil
 }
 
-func (m *mockAdapterV2) FileSize(path url.URL) (int64, error) {
+func (m *mockStorageV2) FileSize(path url.URL) (int64, error) {
 	if m.sizeErr != nil {
 		return 0, m.sizeErr
 	}
 	return m.size, nil
 }
 
-func (m *mockAdapterV2) ReadStream(path url.URL) (io.ReadCloser, error) {
+func (m *mockStorageV2) ReadStream(path url.URL) (io.ReadCloser, error) {
 	if m.readErr != nil {
 		return nil, m.readErr
 	}
@@ -60,8 +60,8 @@ func (m *mockAdapterV2) ReadStream(path url.URL) (io.ReadCloser, error) {
 
 func TestGetStorages(t *testing.T) {
 	t.Run("list storages", func(t *testing.T) {
-		mock := &mockAdapterV2{}
-		storages := map[string]adapter.Adapter{
+		mock := &mockStorageV2{}
+		storages := map[string]storage.Storage{
 			"local": mock,
 			"s3":    mock,
 		}
@@ -96,7 +96,7 @@ func TestGetStorages(t *testing.T) {
 
 func TestGetStoragesStorageNodesPath_DirectoryListing(t *testing.T) {
 	t.Run("list root directory", func(t *testing.T) {
-		mockNodes := []adapter.FileNode{
+		mockNodes := []storage.FileNode{
 			{
 				Path:     url.URL{Scheme: "local", Path: "/subdir"},
 				Type:     "dir",
@@ -113,8 +113,8 @@ func TestGetStoragesStorageNodesPath_DirectoryListing(t *testing.T) {
 			},
 		}
 
-		mock := &mockAdapterV2{nodes: mockNodes}
-		storages := map[string]adapter.Adapter{
+		mock := &mockStorageV2{nodes: mockNodes}
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -157,8 +157,8 @@ func TestGetStoragesStorageNodesPath_DirectoryListing(t *testing.T) {
 }
 
 func TestNotImplementedOperations(t *testing.T) {
-	mock := &mockAdapterV2{}
-	storages := map[string]adapter.Adapter{
+	mock := &mockStorageV2{}
+	storages := map[string]storage.Storage{
 		"local": mock,
 	}
 
@@ -251,8 +251,8 @@ func TestNotImplementedOperations(t *testing.T) {
 
 func TestNewServer(t *testing.T) {
 	t.Run("valid server creation", func(t *testing.T) {
-		mock := &mockAdapterV2{}
-		storages := map[string]adapter.Adapter{
+		mock := &mockStorageV2{}
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -267,8 +267,8 @@ func TestNewServer(t *testing.T) {
 	})
 
 	t.Run("invalid default storage", func(t *testing.T) {
-		mock := &mockAdapterV2{}
-		storages := map[string]adapter.Adapter{
+		mock := &mockStorageV2{}
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -279,8 +279,8 @@ func TestNewServer(t *testing.T) {
 	})
 
 	t.Run("empty default storage is allowed", func(t *testing.T) {
-		mock := &mockAdapterV2{}
-		storages := map[string]adapter.Adapter{
+		mock := &mockStorageV2{}
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -299,14 +299,14 @@ func TestNewServer(t *testing.T) {
 func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 	t.Run("serve text file", func(t *testing.T) {
 		content := "Hello, World!"
-		mock := &mockAdapterV2{
+		mock := &mockStorageV2{
 			content:  content,
 			mimeType: "text/plain",
 			size:     int64(len(content)),
 			isFile:   true,
 		}
 
-		storages := map[string]adapter.Adapter{
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -344,14 +344,14 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 
 	t.Run("serve binary file", func(t *testing.T) {
 		binaryContent := "\x89PNG\r\n\x1a\n" // PNG header
-		mock := &mockAdapterV2{
+		mock := &mockStorageV2{
 			content:  binaryContent,
 			mimeType: "image/png",
 			size:     int64(len(binaryContent)),
 			isFile:   true,
 		}
 
-		storages := map[string]adapter.Adapter{
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -383,14 +383,14 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 
 	t.Run("serve large file", func(t *testing.T) {
 		largeContent := strings.Repeat("Lorem ipsum dolor sit amet. ", 1000)
-		mock := &mockAdapterV2{
+		mock := &mockStorageV2{
 			content:  largeContent,
 			mimeType: "text/plain",
 			size:     int64(len(largeContent)),
 			isFile:   true,
 		}
 
-		storages := map[string]adapter.Adapter{
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -421,12 +421,12 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 	})
 
 	t.Run("mime type detection error", func(t *testing.T) {
-		mock := &mockAdapterV2{
+		mock := &mockStorageV2{
 			mimeTypeErr: http.ErrNotSupported,
 			isFile:      true,
 		}
 
-		storages := map[string]adapter.Adapter{
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -448,13 +448,13 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 	})
 
 	t.Run("file size error", func(t *testing.T) {
-		mock := &mockAdapterV2{
+		mock := &mockStorageV2{
 			mimeType: "text/plain",
 			sizeErr:  http.ErrNotSupported,
 			isFile:   true,
 		}
 
-		storages := map[string]adapter.Adapter{
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -476,14 +476,14 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 	})
 
 	t.Run("read stream error", func(t *testing.T) {
-		mock := &mockAdapterV2{
+		mock := &mockStorageV2{
 			mimeType: "text/plain",
 			size:     100,
 			readErr:  http.ErrNotSupported,
 			isFile:   true,
 		}
 
-		storages := map[string]adapter.Adapter{
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 
@@ -504,12 +504,12 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 		}
 	})
 
-	t.Run("adapter does not support reading", func(t *testing.T) {
-		// Create an adapter that doesn't implement Reader
-		type nonReaderAdapter struct{}
+	t.Run("storage does not support reading", func(t *testing.T) {
+		// Create an storage that doesn't implement Reader
+		type nonReaderStorage struct{}
 
-		storages := map[string]adapter.Adapter{
-			"local": &nonReaderAdapter{},
+		storages := map[string]storage.Storage{
+			"local": &nonReaderStorage{},
 		}
 
 		server, err := NewServer(storages, "local")
@@ -531,14 +531,14 @@ func TestGetStoragesStorageNodesPath_FileContent(t *testing.T) {
 
 	t.Run("with download parameter", func(t *testing.T) {
 		content := "File content for download"
-		mock := &mockAdapterV2{
+		mock := &mockStorageV2{
 			content:  content,
 			mimeType: "text/plain",
 			size:     int64(len(content)),
 			isFile:   true,
 		}
 
-		storages := map[string]adapter.Adapter{
+		storages := map[string]storage.Storage{
 			"local": mock,
 		}
 

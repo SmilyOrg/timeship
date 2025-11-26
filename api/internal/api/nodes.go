@@ -12,7 +12,7 @@ import (
 	"strings"
 	"sync/atomic"
 
-	"timeship/internal/adapter"
+	"timeship/internal/storage"
 
 	"github.com/charlievieth/fastwalk"
 )
@@ -41,18 +41,16 @@ func (s *Server) GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request,
 
 // GetStoragesStorageNodesPath handles getting node information or content
 // This combines both directory listing and file retrieval functionality
-func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request, storage Storage, path NodePath, params GetStoragesStorageNodesPathParams) {
-	// Get the storage adapter
-	storageAdapter, err := s.getStorage(string(storage))
+func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Request, storageName Storage, path NodePath, params GetStoragesStorageNodesPathParams) {
+	// Get the storage
+	store, err := s.getStorage(string(storageName))
 	if err != nil {
 		s.sendError(w, "Storage Not Found", http.StatusNotFound, err.Error(), r.URL.Path)
 		return
 	}
 
-	// Create url.URL with adapter prefix
-	// vfPath := adapter.AddPrefix(nodePath, string(storage))
 	vfPath := url.URL{
-		Scheme: string(storage),
+		Scheme: string(storageName),
 		Path:   path,
 	}
 
@@ -67,16 +65,16 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 	acceptHeader := r.Header.Get("Accept")
 	wantsJSON := strings.Contains(acceptHeader, "application/json")
 
-	// Check if the adapter supports listing (for directories) or reading (for files)
-	lister, canList := storageAdapter.(adapter.Lister)
-	reader, canRead := storageAdapter.(adapter.Reader)
+	// Check if the storage supports listing (for directories) or reading (for files)
+	lister, canList := store.(storage.Lister)
+	reader, canRead := store.(storage.Reader)
 
 	// First, try to list as a directory
 	if canList {
 		nodes, err := lister.ListContents(vfPath)
 		if err == nil {
 			// It's a directory - return listing as JSON
-			s.serveDirectoryListing(w, r, storage, path, nodes, params, storageAdapter)
+			s.serveDirectoryListing(w, r, storageName, path, nodes, params, store)
 			return
 		}
 	}
@@ -85,11 +83,11 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 	if canRead {
 		// If client wants JSON, return file metadata
 		if wantsJSON {
-			s.serveFileMetadata(w, r, storage, path, vfPath, reader, params)
+			s.serveFileMetadata(w, r, storageName, path, vfPath, reader, params)
 			return
 		}
 		// Otherwise, return file content
-		s.serveFileContent(w, r, storage, path, vfPath, reader, params)
+		s.serveFileContent(w, r, storageName, path, vfPath, reader, params)
 		return
 	}
 
@@ -98,7 +96,7 @@ func (s *Server) GetStoragesStorageNodesPath(w http.ResponseWriter, r *http.Requ
 }
 
 // serveDirectoryListing returns directory listing as JSON
-func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, storage Storage, path string, nodes []adapter.FileNode, params GetStoragesStorageNodesPathParams, storageAdapter adapter.Adapter) {
+func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, storageName Storage, path string, nodes []storage.FileNode, params GetStoragesStorageNodesPathParams, store storage.Storage) {
 	// Sort nodes: directories first, then by name
 	sort.Slice(nodes, func(i, j int) bool {
 		if nodes[i].Type != nodes[j].Type {
@@ -109,7 +107,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 
 	// Apply type filter if specified
 	if params.Type != nil {
-		filtered := []adapter.FileNode{}
+		filtered := []storage.FileNode{}
 		for _, node := range nodes {
 			if string(*params.Type) == node.Type {
 				filtered = append(filtered, node)
@@ -123,7 +121,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 		// TODO: Implement glob pattern matching
 		// For now, we'll do simple substring matching
 		pattern := *params.Filter
-		filtered := []adapter.FileNode{}
+		filtered := []storage.FileNode{}
 		for _, node := range nodes {
 			if strings.Contains(node.Basename, strings.Trim(pattern, "*")) {
 				filtered = append(filtered, node)
@@ -137,7 +135,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 		// TODO: Implement recursive search
 		// For now, we'll do simple name matching on current level
 		query := strings.ToLower(*params.Search)
-		filtered := []adapter.FileNode{}
+		filtered := []storage.FileNode{}
 		for _, node := range nodes {
 			if strings.Contains(strings.ToLower(node.Basename), query) {
 				filtered = append(filtered, node)
@@ -146,7 +144,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 		nodes = filtered
 	}
 
-	// Convert adapter.FileNode to api.Node
+	// Convert storage.FileNode to api.Node
 	files := make([]Node, 0, len(nodes))
 	for _, node := range nodes {
 		apiNode := Node{
@@ -174,7 +172,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 	sort.Strings(storages)
 
 	// Build dirname with storage prefix
-	dirname := string(storage) + "://"
+	dirname := string(storageName) + "://"
 	if path != "" {
 		dirname += path
 	}
@@ -183,7 +181,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 	response := NodeList{
 		Files:    files,
 		Dirname:  dirname,
-		ReadOnly: false, // TODO: Determine read-only status from adapter capabilities
+		ReadOnly: false, // TODO: Determine read-only status from storage capabilities
 		Storages: storages,
 	}
 
@@ -193,9 +191,9 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 		// Parse fields parameter - looking for (total_size)
 		if strings.Contains(fields, "(total_size)") {
 			// Compute total size if requested
-			totalSize, err := s.computeTotalSize(storageAdapter, storage, path)
+			totalSize, err := s.computeTotalSize(store, storageName, path)
 			if err != nil {
-				log.Printf("Failed to compute total_size for %s://%s: %v", storage, path, err)
+				log.Printf("Failed to compute total_size for %s://%s: %v", storageName, path, err)
 			} else {
 				response.TotalSize = &totalSize
 			}
@@ -208,7 +206,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 }
 
 // serveFileMetadata returns file metadata as JSON
-func (s *Server) serveFileMetadata(w http.ResponseWriter, r *http.Request, storage Storage, path string, vfPath url.URL, reader adapter.Reader, params GetStoragesStorageNodesPathParams) {
+func (s *Server) serveFileMetadata(w http.ResponseWriter, r *http.Request, storageName Storage, path string, vfPath url.URL, reader storage.Reader, params GetStoragesStorageNodesPathParams) {
 	// Get file size
 	fileSize, err := reader.FileSize(vfPath)
 	if err != nil {
@@ -223,9 +221,9 @@ func (s *Server) serveFileMetadata(w http.ResponseWriter, r *http.Request, stora
 		mimeType = "application/octet-stream"
 	}
 
-	// Get last modified time if adapter supports it
+	// Get last modified time if storage supports it
 	var lastModified int64
-	if stater, ok := reader.(adapter.Stater); ok {
+	if stater, ok := reader.(storage.Stater); ok {
 		lastModified, err = stater.LastModified(vfPath)
 		if err != nil {
 			log.Printf("Failed to get last modified time for %s: %v", vfPath.String(), err)
@@ -241,7 +239,7 @@ func (s *Server) serveFileMetadata(w http.ResponseWriter, r *http.Request, stora
 	}
 
 	// Build full path with storage prefix
-	fullPath := string(storage) + "://" + path
+	fullPath := string(storageName) + "://" + path
 
 	// Create node response
 	node := Node{
@@ -263,7 +261,7 @@ func (s *Server) serveFileMetadata(w http.ResponseWriter, r *http.Request, stora
 }
 
 // serveFileContent streams file content
-func (s *Server) serveFileContent(w http.ResponseWriter, r *http.Request, storage Storage, path string, vfPath url.URL, reader adapter.Reader, params GetStoragesStorageNodesPathParams) {
+func (s *Server) serveFileContent(w http.ResponseWriter, r *http.Request, storageName Storage, path string, vfPath url.URL, reader storage.Reader, params GetStoragesStorageNodesPathParams) {
 	// Get MIME type
 	mimeType, err := reader.MimeType(vfPath)
 	if err != nil {
@@ -320,16 +318,16 @@ func getBasename(path string) string {
 
 // computeTotalSize computes the total size of all files in a directory tree
 // using fastwalk for parallel traversal
-func (s *Server) computeTotalSize(storageAdapter adapter.Adapter, storage Storage, path string) (int64, error) {
+func (s *Server) computeTotalSize(store storage.Storage, storage Storage, path string) (int64, error) {
 	// We need a concrete type that has a root path
-	// For now, we'll check if it's a local adapter
-	type localAdapter interface {
+	// For now, we'll check if it's a local storage
+	type localStorage interface {
 		GetRootPath() string
 	}
 
-	la, ok := storageAdapter.(localAdapter)
+	la, ok := store.(localStorage)
 	if !ok {
-		return 0, fmt.Errorf("storage adapter does not support total size computation")
+		return 0, fmt.Errorf("storage does not support total size computation")
 	}
 
 	rootPath := la.GetRootPath()

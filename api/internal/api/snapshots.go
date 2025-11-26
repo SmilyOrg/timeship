@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-
-	"timeship/internal/adapter"
+	"timeship/internal/storage"
 )
 
 // GetStoragesStorageSnapshots handles getting snapshots at storage root
@@ -23,27 +22,27 @@ func (s *Server) GetStoragesStorageSnapshots(w http.ResponseWriter, r *http.Requ
 }
 
 // GetStoragesStorageSnapshotsPath handles getting snapshots for a specific node
-func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.Request, storage Storage, path string, params GetStoragesStorageSnapshotsPathParams) {
-	// Get the storage adapter
-	storageAdapter, err := s.getStorage(string(storage))
+func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.Request, storageName Storage, path string, params GetStoragesStorageSnapshotsPathParams) {
+	// Get the storage storage
+	store, err := s.getStorage(string(storageName))
 	if err != nil {
 		s.sendError(w, "Storage Not Found", http.StatusNotFound, err.Error(), r.URL.Path)
 		return
 	}
 
-	// Check if adapter supports snapshots
-	snapshotLister, ok := storageAdapter.(adapter.SnapshotLister)
+	// Check if storage supports snapshots
+	snapshotLister, ok := store.(storage.SnapshotLister)
 	if !ok {
-		s.sendError(w, "Not Supported", http.StatusNotImplemented, "Storage adapter does not support snapshots", r.URL.Path)
+		s.sendError(w, "Not Supported", http.StatusNotImplemented, "Storage storage does not support snapshots", r.URL.Path)
 		return
 	}
 
 	vfPath := url.URL{
-		Scheme: string(storage),
+		Scheme: string(storageName),
 		Path:   path,
 	}
 
-	// Get snapshots from the adapter
+	// Get snapshots from the storage
 	snapshots, err := snapshotLister.ListSnapshots(vfPath)
 	if err != nil {
 		s.sendError(w, "Error", http.StatusInternalServerError, fmt.Sprintf("Failed to get snapshots: %v", err), r.URL.Path)
@@ -62,7 +61,7 @@ func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.
 
 	// Apply offset
 	if offset >= len(snapshots) {
-		snapshots = []adapter.Snapshot{}
+		snapshots = []storage.Snapshot{}
 	} else {
 		snapshots = snapshots[offset:]
 	}
@@ -90,7 +89,7 @@ func (s *Server) GetStoragesStorageSnapshotsPath(w http.ResponseWriter, r *http.
 	}
 
 	response := NodeSnapshotsList{
-		Storage:   string(storage),
+		Storage:   string(storageName),
 		Path:      path,
 		Snapshots: apiSnapshots,
 	}

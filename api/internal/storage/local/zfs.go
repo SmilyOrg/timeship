@@ -1,8 +1,8 @@
-// Package local provides adapters for local filesystems including ZFS snapshot support.
+// Package local provides storages for local filesystems including ZFS snapshot support.
 //
 // # ZFS Snapshot Date/Time Parsing
 //
-// The ZFS adapter automatically parses timestamps from snapshot names using configurable patterns.
+// The ZFS storage automatically parses timestamps from snapshot names using configurable patterns.
 // By default, it supports common formats like:
 //   - auto-weekly-2025-11-09_00-00
 //   - auto-hourly-2025-11-09_13-30
@@ -13,7 +13,7 @@
 //
 // # Custom Patterns
 //
-// You can provide custom date/time patterns when creating a ZFS adapter:
+// You can provide custom date/time patterns when creating a ZFS storage:
 //
 //	config := local.ZFSConfig{
 //		DateTimePatterns: []local.DateTimePattern{
@@ -42,7 +42,7 @@ import (
 	"strings"
 	"time"
 
-	"timeship/internal/adapter"
+	"timeship/internal/storage"
 )
 
 // ZFSConfig holds configuration for the ZFS snapshot provider
@@ -182,7 +182,7 @@ func (z *ZFS) parseTimestampFromName(name string) (int64, bool) {
 }
 
 // Snapshots returns all ZFS snapshots available for a given path
-func (z *ZFS) Snapshots(relPath string) ([]adapter.Snapshot, error) {
+func (z *ZFS) Snapshots(relPath string) ([]storage.Snapshot, error) {
 
 	rootPath, err := z.findSnapshotRoot(relPath)
 	if err != nil {
@@ -194,7 +194,7 @@ func (z *ZFS) Snapshots(relPath string) ([]adapter.Snapshot, error) {
 		return nil, fmt.Errorf("failed to read snapshot dir: %w", err)
 	}
 
-	snapshots := []adapter.Snapshot{}
+	snapshots := []storage.Snapshot{}
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
@@ -212,13 +212,13 @@ func (z *ZFS) Snapshots(relPath string) ([]adapter.Snapshot, error) {
 			timestamp = info.ModTime().Unix()
 		}
 
-		snapshot := adapter.Snapshot{
+		snapshot := storage.Snapshot{
 			ID:        fmt.Sprintf("zfs:%s", entry.Name()),
 			Type:      "zfs",
 			Timestamp: timestamp,
 			Name:      entry.Name(),
 			Size:      -1, // ZFS snapshot size is not easily determinable
-			Metadata: adapter.SnapshotMetadata{
+			Metadata: storage.SnapshotMetadata{
 				"zfs_root": rootPath,
 			},
 		}

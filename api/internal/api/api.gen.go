@@ -201,7 +201,7 @@ type NodeSnapshotsList struct {
 	// Snapshots List of snapshots for this node, ordered by timestamp (newest first by default)
 	Snapshots []Snapshot `json:"snapshots"`
 
-	// Storage Storage adapter identifier
+	// Storage Storage identifier
 	Storage string `json:"storage"`
 }
 

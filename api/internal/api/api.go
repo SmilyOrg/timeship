@@ -5,19 +5,19 @@ import (
 	"fmt"
 	"net/http"
 
-	"timeship/internal/adapter"
+	"timeship/internal/storage"
 )
 
 // Server implements the ServerInterface
 type Server struct {
-	storages       map[string]adapter.Adapter
+	storages       map[string]storage.Storage
 	defaultStorage string
 }
 
 // NewServer creates a new API server
 // defaultStorage specifies which storage to use as default
 // Returns an error if the defaultStorage is not found in the storages map
-func NewServer(storages map[string]adapter.Adapter, defaultStorage string) (*Server, error) {
+func NewServer(storages map[string]storage.Storage, defaultStorage string) (*Server, error) {
 	if defaultStorage != "" {
 		if _, ok := storages[defaultStorage]; !ok {
 			return nil, fmt.Errorf("default storage %q not found in storages map", defaultStorage)
@@ -30,9 +30,9 @@ func NewServer(storages map[string]adapter.Adapter, defaultStorage string) (*Ser
 	}, nil
 }
 
-// getStorage returns the storage adapter for the given name.
-// Returns the adapter and an error if the storage is not found.
-func (s *Server) getStorage(name string) (adapter.Adapter, error) {
+// getStorage returns the storage for the given name.
+// Returns the storage and an error if the storage is not found.
+func (s *Server) getStorage(name string) (storage.Storage, error) {
 	if name == "" {
 		return nil, fmt.Errorf("storage name is required")
 	}

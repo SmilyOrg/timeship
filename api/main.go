@@ -15,11 +15,11 @@ import (
 	"syscall"
 	"time"
 
-	"timeship/internal/adapter"
-	"timeship/internal/adapter/local"
 	"timeship/internal/api"
 	"timeship/internal/middleware"
 	"timeship/internal/network"
+	"timeship/internal/storage"
+	"timeship/internal/storage/local"
 
 	"github.com/joho/godotenv"
 	"github.com/lpar/gzipped"
@@ -61,7 +61,7 @@ func main() {
 
 	godotenv.Load()
 
-	// Get the root directory for the local adapter from environment or use current directory
+	// Get the root directory for the local storage from environment or use current directory
 	rootDir := os.Getenv("TIMESHIP_ROOT")
 	if rootDir == "" {
 		var err error
@@ -80,31 +80,31 @@ func main() {
 	// Configuration section
 	log.Printf("Root: %s", rootDir)
 
-	// Create local adapter
-	localAdapter, err := local.New(rootDir)
+	// Create local storage
+	store, err := local.New(rootDir)
 	if err != nil {
-		log.Fatalf("Failed to create local adapter: %v", err)
+		log.Fatalf("Failed to create local storage: %v", err)
 	}
-	defer localAdapter.Close()
+	defer store.Close()
 
-	// Create adapters map
-	adapters := map[string]adapter.Adapter{
-		"local": localAdapter,
+	// Create storages map
+	storages := map[string]storage.Storage{
+		"local": store,
 	}
 
-	// Ensure adapters are closed on exit
+	// Ensure storages are closed on exit
 	defer func() {
-		for name, adapterInstance := range adapters {
-			if closer, ok := adapterInstance.(io.Closer); ok {
+		for name, s := range storages {
+			if closer, ok := s.(io.Closer); ok {
 				if err := closer.Close(); err != nil {
-					log.Printf("Error closing adapter %s: %v", name, err)
+					log.Printf("Error closing storage %s: %v", name, err)
 				}
 			}
 		}
 	}()
 
-	// Create API server (local is the default adapter)
-	server, err := api.NewServer(adapters, "local")
+	// Create API server (local is the default storage)
+	server, err := api.NewServer(storages, "local")
 	if err != nil {
 		log.Fatalf("Failed to create server: %v", err)
 	}

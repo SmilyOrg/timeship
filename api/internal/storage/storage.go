@@ -1,4 +1,4 @@
-package adapter
+package storage
 
 import (
 	"io"
@@ -7,23 +7,23 @@ import (
 
 // Path Handling Convention:
 //
-// All paths in the adapter layer MUST use the following convention:
-//   - Incoming paths: MUST include the adapter name prefix (e.g., "local://path/to/file")
-//   - Outgoing paths: MUST include the adapter name prefix (e.g., "local://path/to/file")
-//   - Root directory: Represented as "adapter://" (e.g., "local://")
+// All paths in the storage layer MUST use the following convention:
+//   - Incoming paths: MUST include the storage name prefix (e.g., "local://path/to/file")
+//   - Outgoing paths: MUST include the storage name prefix (e.g., "local://path/to/file")
+//   - Root directory: Represented as "storage://" (e.g., "local://")
 //
 // This ensures:
-//   - Consistent path handling across all adapter implementations
-//   - Clear identification of which adapter owns each path
+//   - Consistent path handling across all storage implementations
+//   - Clear identification of which storage owns each path
 //   - Proper integration with the Timeship API specification
 //
 // Paths are represented as url.URL objects. Helper functions are provided below
 // to assist with path manipulation.
 
 // FileNode represents a file or directory
-// All Path fields MUST include the adapter prefix (e.g., "local://path/to/file")
+// All Path fields MUST include the storage prefix (e.g., "local://path/to/file")
 type FileNode struct {
-	Path         url.URL // Full path with adapter prefix, e.g., "local://documents/file.txt"
+	Path         url.URL // Full path with storage prefix, e.g., "local://documents/file.txt"
 	Type         string  // "file" or "dir"
 	Basename     string  // Base name without path, e.g., "file.txt"
 	Extension    string  // File extension without dot, e.g., "txt"
@@ -58,17 +58,17 @@ type Snapshot struct {
 // SnapshotMetadata represents backend-specific metadata for a snapshot
 type SnapshotMetadata map[string]interface{}
 
-// Adapter is a marker interface for storage adapters
-// All methods are optional - adapters implement only the capabilities they support
-type Adapter interface {
-	// Adapter is a marker interface - no required methods
+// Storage is a marker interface for storage storages
+// All methods are optional - storages implement only the capabilities they support
+type Storage interface {
+	// Storage is a marker interface - no required methods
 }
 
-// Optional capability interfaces that adapters can implement
+// Optional capability interfaces that storages can implement
 
 // Lister lists directory contents (for /index endpoint)
-// The path parameter MUST include the adapter prefix (e.g., "local://documents")
-// All returned FileNode.Path values MUST include the adapter prefix
+// The path parameter MUST include the storage prefix (e.g., "local://documents")
+// All returned FileNode.Path values MUST include the storage prefix
 type Lister interface {
 	ListContents(path url.URL) ([]FileNode, error)
 }
@@ -79,15 +79,15 @@ type SnapshotLister interface {
 }
 
 // SubfolderLister lists subdirectories (for /subfolders endpoint)
-// The path parameter MUST include the adapter prefix (e.g., "local://documents")
-// All returned FileNode.Path values MUST include the adapter prefix
+// The path parameter MUST include the storage prefix (e.g., "local://documents")
+// All returned FileNode.Path values MUST include the storage prefix
 type SubfolderLister interface {
 	ListSubfolders(path url.URL) ([]FileNode, error)
 }
 
 // Searcher searches for files (for /search endpoint)
-// The path parameter MUST include the adapter prefix (e.g., "local://documents")
-// All returned FileNode.Path values MUST include the adapter prefix
+// The path parameter MUST include the storage prefix (e.g., "local://documents")
+// All returned FileNode.Path values MUST include the storage prefix
 type Searcher interface {
 	Search(path url.URL, filter string) ([]FileNode, error)
 }

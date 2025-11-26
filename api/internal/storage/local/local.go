@@ -10,27 +10,27 @@ import (
 	"path/filepath"
 	"strings"
 
-	"timeship/internal/adapter"
+	"timeship/internal/storage"
 )
 
-const adapterName = "local"
+const storageName = "local"
 
-// Adapter implements adapter interfaces for local filesystem
-type Adapter struct {
+// Storage implements storage interfaces for local filesystem
+type Storage struct {
 	root     *os.Root
 	rootPath string
 	zfs      *ZFS
 }
 
-// New creates a new local filesystem adapter
-func New(rootPath string) (*Adapter, error) {
+// New creates a new local filesystem storage
+func New(rootPath string) (*Storage, error) {
 	// Open the root directory with os.OpenRoot for traversal-resistant operations
 	root, err := os.OpenRoot(rootPath)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Adapter{
+	return &Storage{
 		root:     root,
 		rootPath: rootPath,
 		zfs:      NewZFS(rootPath),
@@ -38,24 +38,24 @@ func New(rootPath string) (*Adapter, error) {
 }
 
 // Close closes the root directory handle
-func (a *Adapter) Close() error {
-	return a.root.Close()
+func (s *Storage) Close() error {
+	return s.root.Close()
 }
 
-// GetRootPath returns the root path of this adapter
-func (a *Adapter) GetRootPath() string {
-	return a.rootPath
+// GetRootPath returns the root path of this storage
+func (s *Storage) GetRootPath() string {
+	return s.rootPath
 }
 
-func (a *Adapter) urlToRelPath(vfPath url.URL) (string, error) {
-	if vfPath.Scheme != adapterName {
-		return "", fmt.Errorf("unexpected adapter scheme: %s", vfPath.Scheme)
+func (s *Storage) urlToRelPath(vfPath url.URL) (string, error) {
+	if vfPath.Scheme != storageName {
+		return "", fmt.Errorf("unexpected storage scheme: %s", vfPath.Scheme)
 	}
 	path := vfPath.Path
 	if path == "" {
 		path = "."
 	}
-	// Strip leading slash - paths are always relative to adapter root
+	// Strip leading slash - paths are always relative to storage root
 	path = strings.TrimPrefix(path, "/")
 	if path == "" {
 		path = "."
@@ -69,18 +69,18 @@ func (a *Adapter) urlToRelPath(vfPath url.URL) (string, error) {
 
 // open opens a file or directory, handling both normal paths and snapshots
 // For snapshots: opens from the snapshot directory
-// For normal paths: opens from the adapter's root
+// For normal paths: opens from the storage's root
 // The caller is responsible for closing the returned file
-func (a *Adapter) open(vfPath url.URL) (*os.File, error) {
-	relPath, err := a.urlToRelPath(vfPath)
+func (s *Storage) open(vfPath url.URL) (*os.File, error) {
+	relPath, err := s.urlToRelPath(vfPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert path: %w", err)
 	}
 	snapshotID := vfPath.Query().Get("snapshot")
 	if snapshotID == "" {
-		return a.root.Open(relPath)
+		return s.root.Open(relPath)
 	}
-	root, err := a.zfs.SnapshotRoot(relPath, snapshotID)
+	root, err := s.zfs.SnapshotRoot(relPath, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open: %w", err)
 	}
@@ -89,16 +89,16 @@ func (a *Adapter) open(vfPath url.URL) (*os.File, error) {
 }
 
 // stat gets file info, handling both normal paths and snapshots
-func (a *Adapter) stat(vfPath url.URL) (os.FileInfo, error) {
-	relPath, err := a.urlToRelPath(vfPath)
+func (s *Storage) stat(vfPath url.URL) (os.FileInfo, error) {
+	relPath, err := s.urlToRelPath(vfPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert path: %w", err)
 	}
 	snapshotID := vfPath.Query().Get("snapshot")
 	if snapshotID == "" {
-		return a.root.Stat(relPath)
+		return s.root.Stat(relPath)
 	}
-	root, err := a.zfs.SnapshotRoot(relPath, snapshotID)
+	root, err := s.zfs.SnapshotRoot(relPath, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open: %w", err)
 	}
@@ -106,9 +106,9 @@ func (a *Adapter) stat(vfPath url.URL) (os.FileInfo, error) {
 	return root.Stat(relPath)
 }
 
-// ListContents implements adapter.Lister
-func (a *Adapter) ListContents(vfPath url.URL) ([]adapter.FileNode, error) {
-	f, err := a.open(vfPath)
+// ListContents implements storage.Lister
+func (s *Storage) ListContents(vfPath url.URL) ([]storage.FileNode, error) {
+	f, err := s.open(vfPath)
 	if err != nil {
 		return nil, err
 	}
@@ -120,16 +120,16 @@ func (a *Adapter) ListContents(vfPath url.URL) ([]adapter.FileNode, error) {
 		return nil, err
 	}
 
-	nodes := make([]adapter.FileNode, 0, len(entries))
+	nodes := make([]storage.FileNode, 0, len(entries))
 	for _, info := range entries {
-		// Build the full path with adapter prefix
+		// Build the full path with storage prefix
 		// Always remove leading slash to avoid local:///path issues
 		filePath := vfPath
 		joinedPath := path.Join(vfPath.Path, info.Name())
 		filePath.Path = strings.TrimPrefix(joinedPath, "/")
 		filePath.RawQuery = ""
 
-		node := adapter.FileNode{
+		node := storage.FileNode{
 			Path:         filePath,
 			Basename:     info.Name(),
 			LastModified: info.ModTime().Unix(),
@@ -144,7 +144,7 @@ func (a *Adapter) ListContents(vfPath url.URL) ([]adapter.FileNode, error) {
 
 			// Detect MIME type
 			if node.Extension != "" {
-				mimeType, _ := a.MimeType(node.Path)
+				mimeType, _ := s.MimeType(node.Path)
 				node.MimeType = mimeType
 			}
 		}
@@ -155,9 +155,9 @@ func (a *Adapter) ListContents(vfPath url.URL) ([]adapter.FileNode, error) {
 	return nodes, nil
 }
 
-// MimeType implements adapter.Reader
-func (a *Adapter) MimeType(vfPath url.URL) (string, error) {
-	file, err := a.open(vfPath)
+// MimeType implements storage.Reader
+func (s *Storage) MimeType(vfPath url.URL) (string, error) {
+	file, err := s.open(vfPath)
 	if err != nil {
 		return "", err
 	}
@@ -169,34 +169,34 @@ func (a *Adapter) MimeType(vfPath url.URL) (string, error) {
 	return http.DetectContentType(buffer[:n]), nil
 }
 
-// FileSize implements adapter.Reader
-func (a *Adapter) FileSize(vfPath url.URL) (int64, error) {
-	info, err := a.stat(vfPath)
+// FileSize implements storage.Reader
+func (s *Storage) FileSize(vfPath url.URL) (int64, error) {
+	info, err := s.stat(vfPath)
 	if err != nil {
 		return 0, err
 	}
 	return info.Size(), nil
 }
 
-// LastModified implements adapter.Stater
-func (a *Adapter) LastModified(vfPath url.URL) (int64, error) {
-	info, err := a.stat(vfPath)
+// LastModified implements storage.Stater
+func (s *Storage) LastModified(vfPath url.URL) (int64, error) {
+	info, err := s.stat(vfPath)
 	if err != nil {
 		return 0, err
 	}
 	return info.ModTime().Unix(), nil
 }
 
-// ReadStream implements adapter.Reader
-func (a *Adapter) ReadStream(vfPath url.URL) (io.ReadCloser, error) {
-	return a.open(vfPath)
+// ReadStream implements storage.Reader
+func (s *Storage) ReadStream(vfPath url.URL) (io.ReadCloser, error) {
+	return s.open(vfPath)
 }
 
-// GetSnapshots implements adapter.SnapshotProvider
-func (a *Adapter) ListSnapshots(vfPath url.URL) ([]adapter.Snapshot, error) {
-	relPath, err := a.urlToRelPath(vfPath)
+// GetSnapshots implements storage.SnapshotProvider
+func (s *Storage) ListSnapshots(vfPath url.URL) ([]storage.Snapshot, error) {
+	relPath, err := s.urlToRelPath(vfPath)
 	if err != nil {
 		return nil, fmt.Errorf("unable to convert path: %w", err)
 	}
-	return a.zfs.Snapshots(relPath)
+	return s.zfs.Snapshots(relPath)
 }

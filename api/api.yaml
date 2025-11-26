@@ -283,7 +283,7 @@ components:
       properties:
         storage:
           type: string
-          description: Storage adapter identifier
+          description: Storage identifier
           example: "local"
         path:
           type: string
