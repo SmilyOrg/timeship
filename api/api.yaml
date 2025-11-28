@@ -12,7 +12,7 @@ info:
     - Node type (file/dir) is determined by the response, not the URL
     - Paths are hierarchical and natural - empty path = storage root
     - Operations are RESTful resources (moves, copies, archives)
-    - Storage identifier is implicit in path prefix (e.g., "local://path")
+    - Paths are relative to storage root (e.g., "documents/report.pdf")
   version: 2.0.0
   
 servers:
@@ -44,7 +44,7 @@ components:
       type: object
       description: |
         Unified representation of any filesystem object (file or directory).
-        Storage identifier is implicit in the path prefix (e.g., "local://path").
+        Path is relative to the storage root.
       required:
         - path
         - type
@@ -55,8 +55,8 @@ components:
       properties:
         path:
           type: string
-          description: Full path with storage prefix
-          example: 'local://documents/reports/2024/report.pdf'
+          description: Path relative to storage root
+          example: 'documents/reports/2024/report.pdf'
         type:
           $ref: '#/components/schemas/NodeType'
         basename:
@@ -88,8 +88,8 @@ components:
           example: 'https://cdn.example.com/documents/reports/2024/report.pdf'
         dir:
           type: string
-          description: Parent directory path with storage prefix (only present in search results)
-          example: 'local://documents/reports/2024'
+          description: Parent directory path relative to storage root (only present in search results)
+          example: 'documents/reports/2024'
             
     NodeList:
       type: object
@@ -103,8 +103,8 @@ components:
       properties:
         dirname:
           type: string
-          description: Current directory path with storage prefix
-          example: 'local://documents/reports'
+          description: Current directory path relative to storage root
+          example: 'documents/reports'
         files:
           type: array
           description: Child nodes in the current directory
@@ -492,17 +492,17 @@ components:
             directory:
               summary: Directory listing
               value:
-                dirname: local://documents
+                dirname: documents
                 read_only: false
                 storages: [local, s3]
                 files:
-                  - path: local://documents/reports
+                  - path: documents/reports
                     type: dir
                     basename: reports
                     extension: ""
                     last_modified: 1698364800
                     file_size: 0
-                  - path: local://documents/readme.txt
+                  - path: documents/readme.txt
                     type: file
                     basename: readme.txt
                     extension: txt
@@ -513,7 +513,7 @@ components:
             file:
               summary: File metadata
               value:
-                path: local://documents/report.pdf
+                path: documents/report.pdf
                 type: file
                 basename: report.pdf
                 extension: pdf
@@ -524,27 +524,27 @@ components:
             search:
               summary: Search results
               value:
-                dirname: local://documents
+                dirname: documents
                 read_only: false
                 storages: [local, s3]
                 files:
-                  - path: local://documents/2024/report.pdf
+                  - path: documents/2024/report.pdf
                     type: file
                     basename: report.pdf
                     extension: pdf
                     mime_type: application/pdf
                     file_size: 2097152
                     last_modified: 1698364800
-                    dir: local://documents/2024
+                    dir: documents/2024
                     url: https://cdn.example.com/documents/2024/report.pdf
-                  - path: local://documents/reports/annual-report.pdf
+                  - path: documents/reports/annual-report.pdf
                     type: file
                     basename: annual-report.pdf
                     extension: pdf
                     mime_type: application/pdf
                     file_size: 1536000
                     last_modified: 1698364800
-                    dir: local://documents/reports
+                    dir: documents/reports
                     url: https://cdn.example.com/documents/reports/annual-report.pdf
         application/octet-stream:
           schema:
@@ -921,16 +921,16 @@ paths:
                           type: string
               example:
                 moved: 3
-                destination: local://archive/2024
+                destination: archive/2024
                 results:
-                  - source: local://documents/report1.pdf
-                    destination: local://archive/2024/report1.pdf
+                  - source: documents/report1.pdf
+                    destination: archive/2024/report1.pdf
                     status: success
-                  - source: local://documents/report2.pdf
-                    destination: local://archive/2024/report2.pdf
+                  - source: documents/report2.pdf
+                    destination: archive/2024/report2.pdf
                     status: success
-                  - source: local://documents/old-folder
-                    destination: local://archive/2024/old-folder
+                  - source: documents/old-folder
+                    destination: archive/2024/old-folder
                     status: success
         '207':
           description: Multi-status (partial success)
@@ -1012,10 +1012,10 @@ paths:
                       type: object
               example:
                 copied: 1
-                destination: local://backup/2024
+                destination: backup/2024
                 results:
-                  - source: local://documents/important.pdf
-                    destination: local://backup/2024/important.pdf
+                  - source: documents/important.pdf
+                    destination: backup/2024/important.pdf
                     status: success
         '207':
           description: Multi-status (partial success)
@@ -1094,7 +1094,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Node'
               example:
-                path: local://backup-2024-11.zip
+                path: backup-2024-11.zip
                 type: file
                 basename: backup-2024-11.zip
                 extension: zip

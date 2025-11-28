@@ -69,6 +69,7 @@ import TextViewer from './TextViewer.vue';
 
 const props = defineProps<{
   fileInfo?: Node | null;
+  currentStorage?: string;
   loading?: boolean;
   error?: string | null;
   snapshot?: string | null;
@@ -95,9 +96,9 @@ function formatDate(timestamp: number): string {
 
 // Compute download URL
 const downloadUrl = computed(() => {
-  if (!props.fileInfo) return '';
+  if (!props.fileInfo || !props.currentStorage) return '';
   
-  return getNodeUrl(props.fileInfo.path, {
+  return getNodeUrl(props.currentStorage, props.fileInfo.path, {
     snapshot: props.snapshot,
     download: true
   });
@@ -125,7 +126,7 @@ const isTextFile = computed(() => {
 
 // Fetch file content for text files
 async function fetchFileContent() {
-  if (!props.fileInfo || !isTextFile.value) {
+  if (!props.fileInfo || !isTextFile.value || !props.currentStorage) {
     fileContent.value = '';
     return;
   }
@@ -134,7 +135,7 @@ async function fetchFileContent() {
   contentError.value = null;
   
   try {
-    const url = getNodeUrl(props.fileInfo.path, {
+    const url = getNodeUrl(props.currentStorage, props.fileInfo.path, {
       snapshot: props.snapshot
     });
     

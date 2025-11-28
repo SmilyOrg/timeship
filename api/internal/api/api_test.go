@@ -148,8 +148,8 @@ func TestGetStoragesStorageNodesPath_DirectoryListing(t *testing.T) {
 			t.Errorf("expected 2 files (direct children), got %d", len(response.Files))
 		}
 
-		// Check dirname has storage prefix
-		expectedDirname := "local://"
+		// Check dirname (should be empty for root)
+		expectedDirname := ""
 		if response.Dirname != expectedDirname {
 			t.Errorf("expected dirname '%s', got '%s'", expectedDirname, response.Dirname)
 		}

@@ -2,7 +2,8 @@
   <div class="browser">
     <snapshot-list
       :model-value="selectedSnapshot"
-      :current-path="path"
+      :current-path="pathStr"
+      :current-storage="props.storage"
       :node="node"
       @update:model-value="onSnapshotChange">
     </snapshot-list>
@@ -17,7 +18,8 @@
         :nodes="nodes"
         :loading="isLoading"
         :error="error?.message"
-        :current-path="path"
+        :current-path="pathStr"
+        :current-storage="props.storage"
         :snapshot="selectedSnapshot"
         @navigate="onPathChange($event)"
         @update:selection="selectedFiles = $event"
@@ -26,6 +28,7 @@
         v-else
         class="file-preview"
         :file-info="currentFileInfo"
+        :current-storage="props.storage"
         :loading="isLoading"
         :error="error?.message"
         :snapshot="selectedSnapshot"
@@ -55,11 +58,10 @@ const router = useRouter();
 
 const selectedFiles = ref<string[]>([]);
 
-// Derive full path from props
-const path = computed(() => {
+// Derive path string from props
+const pathStr = computed(() => {
   const pathArray = Array.isArray(props.path) ? props.path : props.path ? [props.path] : [];
-  const pathStr = pathArray.join('/');
-  return `${props.storage}://${pathStr}`;
+  return pathArray.join('/');
 });
 
 // Derive snapshot from props
@@ -67,13 +69,15 @@ const selectedSnapshot = computed(() => props.snapshot);
 
 // Compute breadcrumb items from path
 const breadcrumbItems = computed(() => {
+  const segments = pathStr.value ? pathStr.value.split('/').filter(s => s) : [];
   return [
-    { text: 'Storage', href: `${props.storage}://`, active: path.value === `${props.storage}://` },
-    ...path.value.split('/').slice(2).map((part, index, arr) => {
+    { text: 'Storage', href: "", active: pathStr.value === '' },
+    ...segments.map((part, index, arr) => {
       const isActive = index === arr.length - 1;
+      const pathUpToHere = arr.slice(0, index + 1).join('/');
       return {
         text: part,
-        href: `${props.storage}://${arr.slice(0, index + 1).join('/')}`,
+        href: pathUpToHere,
         active: isActive,
       };
     }),
@@ -82,9 +86,7 @@ const breadcrumbItems = computed(() => {
 
 // Parse path to extract storage and path components
 const parsedPath = computed(() => {
-  const pathArray = Array.isArray(props.path) ? props.path : props.path ? [props.path] : [];
-  const pathStr = pathArray.join('/');
-  return { storage: props.storage, path: pathStr };
+  return { storage: props.storage, path: pathStr.value };
 });
 
 // Build API endpoint
@@ -121,31 +123,14 @@ const currentFileInfo = computed<Node | null>(() => {
 });
 
 const onPathChange = (newPath: string) => {
-  if (path.value === newPath) {
-    return;
-  }
-  
-  // Parse the new path to extract storage and path
-  try {
-    const url = new URL(newPath);
-    const storage = url.protocol.replace(':', '');
-    const pathStr = decodeURIComponent(url.host) + decodeURIComponent(url.pathname);
-    
-    // Split path into segments to avoid URL encoding issues
-    const pathSegments = pathStr ? pathStr.split('/').filter(s => s) : [];
-    
-    // Update the route
-    router.push({
-      name: 'browse',
-      params: {
-        storage,
-        path: pathSegments.length > 0 ? pathSegments : undefined
-      },
-      query: selectedSnapshot.value ? { snapshot: selectedSnapshot.value } : {}
-    });
-  } catch (e) {
-    console.error('Invalid path:', newPath, e);
-  }
+  router.push({
+    name: 'browse',
+    params: {
+      storage: props.storage,
+      path: newPath ? newPath.split('/').filter(s => s) : undefined
+    },
+    query: selectedSnapshot.value ? { snapshot: selectedSnapshot.value } : {}
+  });
 };
 
 const onSnapshotChange = (newSnapshot: string | null) => {

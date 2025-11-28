@@ -80,6 +80,7 @@ interface FormattedSnapshot {
 
 const props = defineProps<{
   modelValue?: string | null;
+  currentStorage?: string;
   currentPath?: string;
   node?: Node;
 }>();
@@ -91,8 +92,7 @@ const emit = defineEmits<{
 const { data } = useApi(ref("/storages/local/snapshots"));
 
 const isRootPath = computed(() => {
-  const path = props.currentPath;
-  return !path || path === 'local://';
+  return !props.currentPath;
 });
 
 // Build endpoints for checking snapshot availability
@@ -105,10 +105,8 @@ const nodeSnapshotEndpoints = computed(() => {
   }
 
   try {
-    // Parse the path to extract storage and path components
-    const url = new URL(props.currentPath || '');
-    const storage = url.protocol.replace(':', '');
-    const urlPath = url.host + url.pathname;
+    const storage = props.currentStorage;
+    const urlPath = props.currentPath;
     
     // Create endpoint for each snapshot
     return apiSnapshots.map((snapshot: ApiSnapshot) => 

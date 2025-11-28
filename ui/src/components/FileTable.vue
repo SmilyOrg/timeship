@@ -72,11 +72,13 @@ const props = withDefaults(defineProps<{
   loading?: boolean;
   error?: string | null;
   currentPath?: string;
+  currentStorage?: string;
   snapshot?: string | null;
 }>(), {
   loading: false,
   error: null,
   currentPath: '',
+  currentStorage: 'local',
   snapshot: null,
 });
 
@@ -103,7 +105,7 @@ const downloadUrl = computed(() => {
   const node = contextMenu.value.node;
   if (!node) return '';
   
-  return getNodeUrl(node.path, {
+  return getNodeUrl(props.currentStorage, node.path, {
     snapshot: props.snapshot,
     download: true
   });
@@ -185,7 +187,6 @@ function handleClick(event: MouseEvent, node: Node) {
 
 // Handle double click
 function handleDoubleClick(node: Node) {
-  // Emit navigate for both files and directories
   emit('navigate', node.path);
 }
 

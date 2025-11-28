@@ -17,10 +17,10 @@ import (
 	"github.com/charlievieth/fastwalk"
 )
 
-// unencodedPath returns the path from a url.URL without URL encoding
-func unencodedPath(u url.URL) string {
-	// Build unencoded path: scheme://host/path
-	return u.Scheme + "://" + u.Host + u.Path
+// extractPath returns just the path component from a url.URL without the scheme and host
+func extractPath(u url.URL) string {
+	// Return just the path, stripping leading slash if present
+	return strings.TrimPrefix(u.Path, "/")
 }
 
 func (s *Server) GetStoragesStorageNodes(w http.ResponseWriter, r *http.Request, storage Storage, params GetStoragesStorageNodesParams) {
@@ -148,7 +148,7 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 	files := make([]Node, 0, len(nodes))
 	for _, node := range nodes {
 		apiNode := Node{
-			Path:         unencodedPath(node.Path),
+			Path:         extractPath(node.Path),
 			Type:         NodeType(node.Type),
 			Basename:     node.Basename,
 			Extension:    node.Extension,
@@ -171,11 +171,8 @@ func (s *Server) serveDirectoryListing(w http.ResponseWriter, r *http.Request, s
 	}
 	sort.Strings(storages)
 
-	// Build dirname with storage prefix
-	dirname := string(storageName) + "://"
-	if path != "" {
-		dirname += path
-	}
+	// dirname is just the path without storage prefix
+	dirname := path
 
 	// Create response - Files contains the direct children, not wrapped in a directory node
 	response := NodeList{
@@ -238,12 +235,9 @@ func (s *Server) serveFileMetadata(w http.ResponseWriter, r *http.Request, stora
 		extension = basename[idx:]
 	}
 
-	// Build full path with storage prefix
-	fullPath := string(storageName) + "://" + path
-
-	// Create node response
+	// Create node response with path relative to storage root
 	node := Node{
-		Path:         fullPath,
+		Path:         path,
 		Type:         NodeType("file"),
 		Basename:     basename,
 		Extension:    extension,

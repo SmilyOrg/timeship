@@ -13,37 +13,26 @@ export interface Node {
   extension: string;
   file_size: number;
   last_modified: number;
-  path: string;
+  path: string;  // Path relative to storage root (no longer includes storage prefix)
   type: string;
   mime_type?: string;
 }
 
 /**
- * Parse a node path into storage and path components
- * Example: "local://path/to/file" -> { storage: "local", path: "path/to/file" }
- */
-function parsePath(fullPath: string): { storage: string; path: string } {
-  // Parse the path to extract storage and path components
-  const url = new URL(fullPath);
-  const storage = url.protocol.replace(':', '');
-  const path = url.host + url.pathname;
-  return { storage, path };
-}
-
-/**
  * Generate a URL for a node (file or directory)
- * @param nodePath - The full path of the node (e.g., "/storage1/path/to/file")
+ * @param storage - The storage identifier
+ * @param nodePath - The path of the node relative to storage root
  * @param options - Optional parameters
  * @param options.snapshot - Snapshot ID to include in the URL
  * @param options.download - Whether to add the download parameter
  * @returns The full URL to access the node
  */
 export function getNodeUrl(
+  storage: string,
   nodePath: string,
   options?: { snapshot?: string | null; download?: boolean }
 ): string {
-  const { storage, path: urlPath } = parsePath(nodePath);
-  let url = `${API_BASE_URL}/storages/${storage}/nodes/${urlPath}`;
+  let url = `${API_BASE_URL}/storages/${storage}/nodes/${nodePath}`;
   
   const params = new URLSearchParams();
   if (options?.snapshot) {

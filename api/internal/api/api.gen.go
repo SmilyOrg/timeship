@@ -139,12 +139,12 @@ type ErrorResponse struct {
 type ErrorResponseStatus bool
 
 // Node Unified representation of any filesystem object (file or directory).
-// Storage identifier is implicit in the path prefix (e.g., "local://path").
+// Path is relative to the storage root.
 type Node struct {
 	// Basename Base name of the node
 	Basename string `json:"basename"`
 
-	// Dir Parent directory path with storage prefix (only present in search results)
+	// Dir Parent directory path relative to storage root (only present in search results)
 	Dir *string `json:"dir,omitempty"`
 
 	// Extension File extension (empty string for directories)
@@ -159,7 +159,7 @@ type Node struct {
 	// MimeType MIME type (only present for files when detection succeeds)
 	MimeType *string `json:"mime_type,omitempty"`
 
-	// Path Full path with storage prefix
+	// Path Path relative to storage root
 	Path string `json:"path"`
 
 	// Type Type of the filesystem node
@@ -171,7 +171,7 @@ type Node struct {
 
 // NodeList Response containing list of nodes.
 type NodeList struct {
-	// Dirname Current directory path with storage prefix
+	// Dirname Current directory path relative to storage root
 	Dirname string `json:"dirname"`
 
 	// Files Child nodes in the current directory
@@ -301,7 +301,7 @@ type BadRequest400 = ErrorResponse
 type NodeConflict409 = ErrorResponse
 
 // NodeCreated201 Unified representation of any filesystem object (file or directory).
-// Storage identifier is implicit in the path prefix (e.g., "local://path").
+// Path is relative to the storage root.
 type NodeCreated201 = Node
 
 // NodeNotFound404 defines model for nodeNotFound404.
