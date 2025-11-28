@@ -42,6 +42,8 @@
 
 ## About
 
+![Quick demo of Timeship browsing ZFS snapshots](assets/demo.gif)
+
 **Browse and restore files from filesystem snapshots.**
 
 Timeship is a self-hosted web-based snapshot browser that allows you to explore and navigate through ZFS snapshots with an intuitive interface. It provides a seamless way to view historical versions of your files and directories across different points in time.
