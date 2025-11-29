@@ -57,66 +57,96 @@ Timeship is a self-hosted web-based snapshot browser that allows you to explore 
 
 ## Getting Started
 
-### Prerequisites
+### Single-file Binary
 
-* [Go] 1.25+ - for building the API server
-* [Node.js] - for building the frontend
-* [Task] - for running build commands
+You can run Timeship as a single binary, see below for Linux installation instructions (replace version as needed):
 
-### Installation
+1. Download the latest release binary from the [Releases].
+2. Unzip the binary: `unzip timeship_v0.0.2_linux_amd64.zip`
+3. Install binary: `sudo cp timeship_v0.0.2_linux_amd64 /usr/local/bin/timeship`
+4. Run `timeship` anywhere to see files and snapshots under the current directory:
 
-1. Clone the repository
-   ```sh
-   git clone https://github.com/SmilyOrg/timeship.git
-   cd timeship
-   ```
+```sh
+timeship
+```
+```
+ _______               __   _    
+/_  __(_)_ _  ___ ___ / /  (_)__ 
+ / / / /  ' \/ -_|_-</ _ \/ / _ \
+/_/ /_/_/_/_/\__/___/_//_/_/ .__/
+                   v0.0.2 /_/    
 
-2. Build the project
-   ```sh
-   task build
-   ```
+Root: /home/user/some/working/dir
 
-3. Run the server
-   ```sh
-   cd api
-   ./api
-   ```
+Running (Press Ctrl+C to stop)
+  local    http://127.0.0.1:8080
+  network  http://172.17.0.1:8080
+  network  http://172.18.0.1:8080
+  network  http://192.168.1.7:8080
+  local    http://[::1]:8080
+  network  http://[fe80::64ab:72ff:fe39:5c2]:8080
+  network  http://[fe80::6c4c:78ff:fe81:cef4]:8080
+  network  http://[fe80::98d0:4462:fc9b:6271]:8080
+```
 
-4. Open http://localhost:8080 in your browser
+[Releases]: https://github.com/SmilyOrg/timeship/releases
 
 ### Docker
 
 You can also run Timeship using Docker:
 
-1. Build the Docker image
-   ```sh
-   task docker:build
-   ```
-   
-   Or manually:
-   ```sh
-   docker build -t timeship .
-   ```
+```sh
+docker run -p 8080:8080 -v /mnt/tank/your/dataset:/mnt/:ro ghcr.io/smilyorg/timeship
+```
+```sh
+ _______               __   _    
+/_  __(_)_ _  ___ ___ / /  (_)__ 
+ / / / /  ' \/ -_|_-</ _ \/ / _ \
+/_/ /_/_/_/_/\__/___/_//_/_/ .__/
+                   v0.0.2 /_/    
 
-2. Run the container
-   ```sh
-   docker run -p 8080:8080 -v /your/zfs/pool:/data:ro timeship
-   ```
+Root: /mnt
 
-   Or use docker-compose:
-   ```sh
-   docker compose up -d
-   ```
+Running (Press Ctrl+C to stop)
+  local    http://127.0.0.1:8080
+  network  http://172.16.0.5:8080
+  local    http://[::1]:8080
+  network  http://[fdd0::242:ac10:5]:8080
+  network  http://[fe80::42:acff:fe10:5]:8080
+```
 
-3. Open http://localhost:8080 in your browser
+Then open http://localhost:8080 in your browser.
 
 **Note:** Make sure to mount your ZFS datasets or snapshot directories as volumes when running the container.
 
-### Environment Variables
+### Docker Compose
 
-* `TIMESHIP_ROOT` - Root directory to serve (defaults to current working directory)
+You can also use Docker Compose to run Timeship. Here is an example `compose.yml` file:
+
+```yaml
+services:
+  timeship:
+    image: ghcr.io/smilyorg/timeship:latest
+    container_name: timeship
+    ports:
+      - 8080:8080
+    volumes:
+      - /mnt/ssd/docs:/mnt/docs:ro
+      - /mnt/hdd/videos:/mnt/videos:ro
+    restart: unless-stopped
+```
+
+Then open http://localhost:8080 in your browser.
+
+**Note:** Make sure to mount your ZFS datasets or snapshot directories as volumes when running the container.
 
 ## Development
+
+### Prerequisites
+
+* [Go] 1.25+ - for building the API server
+* [Node.js] - for building the frontend
+* [Task] - for running build commands
 
 ### Running in Development Mode
 
@@ -134,6 +164,10 @@ The UI dev server will run on http://localhost:5173 and proxy API requests to th
 
 ## Configuration
 
+### Environment Variables
+
+* `TIMESHIP_ROOT` - Root directory to serve (defaults to current working directory)
+
 ### ZFS Snapshot Patterns
 
 Timeship automatically detects and parses common ZFS snapshot naming patterns:
@@ -142,6 +176,8 @@ Timeship automatically detects and parses common ZFS snapshot naming patterns:
 - `backup-2025-11-09_14-30-45`
 - `snapshot_20251109_143045`
 - `daily-2025-11-09`
+
+The patterns are not customizable yet.
 
 ## Built With
 
