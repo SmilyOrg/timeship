@@ -70,6 +70,13 @@ tasks:
     desc: Build UI frontend
     deps:
       - build:ui
+      - deps:mod
+
+  deps:mod:
+    desc: Install Go module dependencies
+    dir: api
+    cmds:
+      - go mod download
 
   build:ui:
     desc: Build the UI frontend
@@ -136,7 +143,7 @@ tasks:
   package:
     desc: Build and package the application for the current platform
     cmds:
-      - task: build:ui
+      - task: deps
       - task: build:release
       - task: archive
       - task: checksums
@@ -144,7 +151,7 @@ tasks:
   package:all:
     desc: Build and package the application for all platforms
     cmds:
-      - task: build:ui
+      - task: deps
       - task: build:release:all
       - task: archive:all
       - task: checksums
