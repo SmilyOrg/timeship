@@ -233,6 +233,13 @@ tasks:
     cmds:
       - go test -v -race -cover ./...
 
+  docker:run:
+    desc: Run the Docker container locally
+    deps:
+      - task: deps
+    cmds:
+      - docker compose up --build
+
   docker:
     desc: Build a Docker image with the latest git tag
     vars:

@@ -189,6 +189,12 @@ func (z *ZFS) Snapshots(relPath string) ([]storage.Snapshot, error) {
 		return nil, fmt.Errorf("unable to find snapshot root: %w", err)
 	}
 
+	// If no ZFS snapshot directory was found, return an empty list
+	// This is expected for non-ZFS filesystems
+	if rootPath == "" {
+		return []storage.Snapshot{}, nil
+	}
+
 	entries, err := os.ReadDir(rootPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read snapshot dir: %w", err)

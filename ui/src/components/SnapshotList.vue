@@ -89,7 +89,14 @@ const emit = defineEmits<{
   'update:modelValue': [value: string | null];
 }>();
 
-const { data } = useApi(ref("/storages/local/snapshots"));
+// Build the snapshots endpoint based on the current path
+const snapshotsEndpoint = computed(() => {
+  const storage = props.currentStorage || 'local';
+  const path = props.currentPath;
+  return `/storages/${storage}/snapshots${path ? `/${path}` : ''}`;
+});
+
+const { data } = useApi(snapshotsEndpoint);
 
 const isRootPath = computed(() => {
   return !props.currentPath;
