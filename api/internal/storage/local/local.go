@@ -80,12 +80,12 @@ func (s *Storage) open(vfPath url.URL) (*os.File, error) {
 	if snapshotID == "" {
 		return s.root.Open(relPath)
 	}
-	root, err := s.zfs.SnapshotRoot(relPath, snapshotID)
+	root, snapshotRelPath, err := s.zfs.SnapshotRoot(relPath, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open: %w", err)
 	}
 	defer root.Close()
-	return root.Open(relPath)
+	return root.Open(snapshotRelPath)
 }
 
 // stat gets file info, handling both normal paths and snapshots
@@ -98,12 +98,12 @@ func (s *Storage) stat(vfPath url.URL) (os.FileInfo, error) {
 	if snapshotID == "" {
 		return s.root.Stat(relPath)
 	}
-	root, err := s.zfs.SnapshotRoot(relPath, snapshotID)
+	root, snapshotRelPath, err := s.zfs.SnapshotRoot(relPath, snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("unable to open: %w", err)
 	}
 	defer root.Close()
-	return root.Stat(relPath)
+	return root.Stat(snapshotRelPath)
 }
 
 // ListContents implements storage.Lister

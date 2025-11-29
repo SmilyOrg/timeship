@@ -302,13 +302,16 @@ tasks:
   release:local:
     desc: Build, package, and create a local Docker image
     cmds:
-      - task: package:all
+      - task: deps
       - task: docker
+        vars:
+          EXTRA_ARGS: >-
+            -t {{.DOCKER_REPO}}:latest
 
   release:local:multiarch:
     desc: Build and create a multi-architecture local Docker image
     cmds:
-      - task: package:all
+      - task: deps
       - task: docker:multiarch:push:local
 
   release:version:
