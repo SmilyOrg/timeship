@@ -218,7 +218,7 @@ tasks:
   checksums:
     desc: Generate checksums for all archives
     cmds:
-      - cd api && go run ./cmd/sha256 ../dist/archives/*.zip > ../dist/archives/checksums.txt
+      - cd api && go build ./cmd/sha256 && cd ../dist/archives/ && ../../api/sha256 *.zip > checksums.txt
 
   test:
     desc: Run all go tests
