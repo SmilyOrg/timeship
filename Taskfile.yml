@@ -271,7 +271,7 @@ tasks:
       - task: docker:multiarch
         vars:
           EXTRA_ARGS: >-
-            --iidfile ../../.docker-image-id
+            --iidfile .docker-image-id
             --push {{ .DOCKER_ANNOTATIONS }}
           DOCKER_REPO: "{{.DOCKER_REPO}}"
 
